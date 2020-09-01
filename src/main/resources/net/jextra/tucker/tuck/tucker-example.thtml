@@ -1,0 +1,11 @@
+== main
+div.page
+div#intro
+    a#signin.large.another href="login.html" | Sign in
+    div.search
+        input#search-1 placeholder="Search" {{hello}}
+        input#search-2 placeholder="Search{{x}}y" {{id}} {{prompt}}="Hello {{person}}," | Hello {b | There{{sometimes}}xyz}!
+    div#breadcrumbs
+        ul
+            li | Home {{varX}} Again
+            li | Group{p | hello}After

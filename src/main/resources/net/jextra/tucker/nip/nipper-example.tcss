@@ -1,0 +1,54 @@
+// How to - Define variables
+$font-stack: Helvetica, sans-serif
+$primary-color: #333
+$content: "hello world"
+
+// Html element with attributes
+body
+    font: $content 100% $font-stack
+    color: $primary-color
+
+button@hover
+    color: black
+
+a@before
+    content: " : : : @ # . "
+
+// Looks and reads in other nip files.
+@use 'base'
+
+// Class name with attributes
+.inverse
+    background-color: $base-color
+    color: white
+
+// Hierarchy
+nav
+    ul
+        margin: 0
+        padding: 0
+        list-style: none
+
+        .weird-color
+            color: #098976
+
+        .grid-display
+            display: grid
+
+    li
+        display: inline-block
+
+    a
+        display: block
+        padding: 6px 12px
+        text-decoration: none
+
+
+// Another example of an html element with attributes
+input[type="text"]
+    float: left
+    width: 100%
+
+// id with attribute
+#my-id
+    display: inline

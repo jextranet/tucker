@@ -1,0 +1,51 @@
+$black: #000000
+$dark-gray: #222222
+$main-width: 100px
+$big-font: 1.3rem
+$main-width: 100px
+
+// Comment
+    // Another comment
+
+body
+    color: #ff0000
+    display: inline
+
+@media only screen and (max-width: 600px)
+    @media only screen and (min-width: 500px)
+        monkey
+            background-color: lightblue
+            grid-template-areas:
+                "header header header header"
+                "main main . sidebar"
+                "footer footer footer footer"
+
+.anchor-button,.other-button
+    display: block
+    margin: 0.8rem 0
+    padding: 2.0rem 2.5rem
+    color: white
+    font-weight: bold
+    font-size: $big-font
+    text-decoration: none
+    :hover,:active
+        background-color: $black
+
+p.question
+    font-size: 1.5rem
+    display: grid
+    grid-template-columns: 50px $main-width 50px $main-width
+    grid-template-rows: auto
+    grid-template-areas:
+        "header header header header"
+        "main main . sidebar"
+        "footer footer footer footer"
+    p.answer
+        display: block
+        grid-area: text
+        margin-top: 1.25rem
+        margin-bottom: 1.25rem  // Inline comment
+        font-size: 1.1rem
+        line-height: 2.5
+        align-self: $alignment $alignment $alignment
+        color: $dark-gray
