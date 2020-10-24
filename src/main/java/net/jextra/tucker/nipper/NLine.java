@@ -32,6 +32,7 @@ public class NLine
     public enum Type
     {
         comment,
+        include,
         variableDeclaration,
         wrapper,    // @media, @support
         selector,
@@ -164,29 +165,6 @@ public class NLine
     {
         this.value = value;
     }
-
-    //    public String getFullSelector()
-    //    {
-    //        if ( type != Type.selector )
-    //        {
-    //            return "";
-    //        }
-    //
-    //        StringBuilder builder = new StringBuilder();
-    //        if ( parent != null )
-    //        {
-    //            builder.append( parent.getFullSelector() );
-    //        }
-    //
-    //        if ( builder.length() > 0 && !getContent().startsWith( ":" ) )
-    //        {
-    //            builder.append( " " );
-    //        }
-    //
-    //        builder.append( getContent() );
-    //
-    //        return builder.toString();
-    //    }
 
     public String getComment()
     {

@@ -31,15 +31,17 @@ public class NReader
     // ============================================================
 
     private BufferedReader reader;
+    private ReaderProvider includeProvider;
     private NBlock model;
 
     // ============================================================
     // Constructors
     // ============================================================
 
-    public NReader( BufferedReader reader )
+    public NReader( BufferedReader reader, ReaderProvider includeProvider )
     {
         this.reader = reader;
+        this.includeProvider = includeProvider;
     }
 
     // ============================================================
@@ -135,57 +137,83 @@ public class NReader
             if ( line.getContent() == null || line.getContent().isEmpty() )
             {
                 line.setType( NLine.Type.comment );
+
+                continue;
             }
             else if ( line.getContent().startsWith( "$" ) )
             {
                 line.setType( NLine.Type.variableDeclaration );
                 parseVar( line );
-            }
-            else
-            {
-                NLine parent = line.getIndent() == 0 ? null : parents.get( line.getIndent() - 1 );
-                if ( parent != null )
-                {
-                    // Continuations-in-continuation need to be flattened.
-                    while ( parent != null && parent.getType() == NLine.Type.continuation )
-                    {
-                        parent = parent.getParent();
-                    }
 
-                    // Convert a parent that is a property to a selector if it has children (and not looking for continuations).
-                    if ( parent.getType() == NLine.Type.property && !parent.getContent().endsWith( ":" ) )
-                    {
-                        parent.setType( NLine.Type.selector );
-                    }
-                    parent.addChild( line );
+                continue;
+            }
+            else if ( line.getContent().toLowerCase().startsWith( "%include" ) )
+            {
+                line.setType( NLine.Type.include );
+                parseInclude( line );
+
+                continue;
+            }
+
+            NLine parent = line.getIndent() == 0 ? null : parents.get( line.getIndent() - 1 );
+            if ( parent != null )
+            {
+                // Continuations-in-continuation need to be flattened.
+                while ( parent != null && parent.getType() == NLine.Type.continuation )
+                {
+                    parent = parent.getParent();
                 }
 
-                if ( parent == null || parent.getType() == NLine.Type.wrapper )
+                // Convert a parent that is a property to a selector if it has children (and not looking for continuations).
+                if ( parent.getType() == NLine.Type.property && !parent.getContent().endsWith( ":" ) )
                 {
-                    if ( line.getContent().startsWith( "@" ) )
-                    {
-                        line.setType( NLine.Type.wrapper );
-                    }
-                    else
-                    {
-                        line.setType( NLine.Type.selector );
-                    }
+                    parent.setType( NLine.Type.selector );
+                }
+                parent.addChild( line );
+            }
+
+            if ( parent == null || parent.getType() == NLine.Type.wrapper )
+            {
+                if ( line.getContent().startsWith( "@" ) )
+                {
+                    line.setType( NLine.Type.wrapper );
                 }
                 else
                 {
-                    // It is assumed at this time to be property. If this line ends up acquiring children it will be switched to a selector.
-                    line.setType( parent.getType() == NLine.Type.property ? NLine.Type.continuation : NLine.Type.property );
-                    parseProperty( line );
+                    line.setType( NLine.Type.selector );
                 }
+            }
+            else
+            {
+                // It is assumed at this time to be property. If this line ends up acquiring children it will be switched to a selector.
+                line.setType( parent.getType() == NLine.Type.property ? NLine.Type.continuation : NLine.Type.property );
+                parseProperty( line );
             }
 
             parents.put( line.getIndent(), line );
         }
 
-        // Copy all lines to the model.
+        // Transfer all lines to the model.
         for ( NLine line : lines )
         {
-            model.addLine( line );
+            switch ( line.getType() )
+            {
+                case include:
+                    // Go get the included nipper model and inject it into this model
+                    NBlock child = readInclude( line.getValue() );
+                    if ( child != null )
+                    {
+                        model.addBlock( child );
+                    }
+                    break;
+
+                case wrapper:
+                case selector:
+                case property:
+                case continuation:
+                    model.addLine( line );
+                    break;
+            }
         }
 
         reader.close();
@@ -213,6 +241,20 @@ public class NReader
         }
     }
 
+    private void parseInclude( NLine line )
+    {
+        int colon = line.getContent().indexOf( ' ' );
+        if ( colon >= 0 )
+        {
+            line.setName( line.getContent().substring( 1, colon ).trim() );
+            line.setValue( line.getContent().substring( colon + 1 ).trim() );
+        }
+        else
+        {
+            line.setName( line.getContent().substring( 1 ).trim() );
+        }
+    }
+
     private void parseProperty( NLine line )
     {
         int colon = line.getContent().indexOf( ':' );
@@ -231,5 +273,26 @@ public class NReader
         {
             line.setName( line.getContent().trim() );
         }
+    }
+
+    private NBlock readInclude( String name )
+        throws IOException
+    {
+        if ( includeProvider == null || name == null || name.trim().isEmpty() )
+        {
+            return null;
+        }
+
+        BufferedReader in = includeProvider.findReader( name.trim() );
+        if ( in == null )
+        {
+            return null;
+        }
+
+        NReader reader = new NReader( in, includeProvider );
+        NBlock block = reader.parse();
+        in.close();
+
+        return block;
     }
 }

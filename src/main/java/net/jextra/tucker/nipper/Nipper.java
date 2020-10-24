@@ -35,59 +35,8 @@ public class Nipper
     // Fields
     // ============================================================
 
+    private ReaderProvider readerProvider;
     private NBlock model;
-
-    // ============================================================
-    // Constructors
-    // ============================================================
-
-    public Nipper()
-    {
-    }
-
-    public Nipper( Path path )
-        throws IOException
-    {
-        this();
-        BufferedReader in = Files.newBufferedReader( path );
-        parse( in );
-        in.close();
-    }
-
-    public Nipper( File file )
-        throws IOException
-    {
-        this();
-        BufferedReader in = new BufferedReader( new FileReader( file ) );
-        Path directory = Paths.get( file.getParent() );
-        parse( in );
-        in.close();
-    }
-
-    public Nipper( InputStream inputStream )
-        throws IOException
-    {
-        this();
-        BufferedReader in = new BufferedReader( new InputStreamReader( inputStream ) );
-        parse( in );
-        in.close();
-    }
-
-    public Nipper( URL asset )
-        throws IOException
-    {
-        this();
-        BufferedReader in = new BufferedReader( new URLReader( asset ) );
-        parse( in );
-        in.close();
-    }
-
-    public Nipper( BufferedReader in )
-        throws IOException
-    {
-        this();
-        parse( in );
-    }
 
     // ============================================================
     // Methods
@@ -97,15 +46,62 @@ public class Nipper
     // public
     // ----------
 
-    public NBlock buildBlock()
+    public NBlock getBlock()
     {
+        return model;
+    }
+
+    public Nipper setReaderProvider( ReaderProvider provider )
+    {
+        readerProvider = provider;
+
+        return this;
+    }
+
+    public NBlock parse( Path path )
+        throws IOException
+    {
+        BufferedReader in = Files.newBufferedReader( path );
+        NBlock model = parse( in );
+        in.close();
+
+        return model;
+    }
+
+    public NBlock parse( File file )
+        throws IOException
+    {
+        BufferedReader in = new BufferedReader( new FileReader( file ) );
+        parse( in );
+        in.close();
+
+        return model;
+    }
+
+    public NBlock parse( InputStream inputStream )
+        throws IOException
+    {
+        BufferedReader in = new BufferedReader( new InputStreamReader( inputStream ) );
+        NBlock model = parse( in );
+        in.close();
+
+        return model;
+    }
+
+    public NBlock parse( URL asset )
+        throws IOException
+    {
+        BufferedReader in = new BufferedReader( new URLReader( asset ) );
+        NBlock model = parse( in );
+        in.close();
+
         return model;
     }
 
     public NBlock parse( BufferedReader in )
         throws IOException
     {
-        NReader reader = new NReader( in );
+        NReader reader = new NReader( in, readerProvider );
         model = reader.parse();
 
         return model;

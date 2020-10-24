@@ -197,23 +197,25 @@ public class TagNode extends Node
         return attributes;
     }
 
+    @Override
     public void addAttribute( String key )
     {
         addAttribute( key, null );
     }
 
+    @Override
     public void addAttribute( String key, String value )
     {
         if ( attributes.containsKey( key ) )
         {
             Attribute att = attributes.get( key );
-            if ( att == null || att.value == null || att.value.isEmpty() )
+            if ( att == null || att.getValue() == null || att.getValue().isEmpty() )
             {
                 attributes.put( key, att );
             }
             else
             {
-                att.value += " " + value;
+                att.setValue( att.getValue() + " " + value );
             }
         }
         else
@@ -255,7 +257,7 @@ public class TagNode extends Node
                 }
             }
 
-            att.value += " " + clss;
+            att.setValue( att.getValue() + " " + clss );
         }
         else
         {
@@ -301,6 +303,7 @@ public class TagNode extends Node
         return att == null ? null : att.getValue();
     }
 
+    @Override
     public void addSegment( Segment segment )
     {
         segments.add( segment );
@@ -410,21 +413,28 @@ public class TagNode extends Node
             return;
         }
 
-        String value = state.processString( att.getValue() );
-        if ( value == null )
+        // This is the case where the key is specified by itself with no equals (e.g. checked)
+        if ( att.getValue() == null )
         {
-            PrintWriter writer = state.getWriter();
-            writer.print( " " );
+            state.getWriter().print( " " );
             state.writeString( key );
         }
         else
         {
-            PrintWriter writer = state.getWriter();
-            writer.print( " " );
-            state.writeString( key );
-            writer.print( "=\"" );
-            state.writeString( value );
-            writer.print( "\"" );
+            String value = state.processString( att.getValue() );
+            if ( value == null )
+            {
+                // Instead of something like checked="", this simply means no attribute.
+            }
+            else
+            {
+                PrintWriter writer = state.getWriter();
+                writer.print( " " );
+                state.writeString( key );
+                writer.print( "=\"" );
+                state.writeString( value );
+                writer.print( "\"" );
+            }
         }
     }
 
@@ -464,43 +474,4 @@ public class TagNode extends Node
     // Inner Classes
     // ============================================================
 
-    public static class Attribute
-    {
-        private String key;
-        // A value=null means it should output just the attribute (e.g. selected).
-        // A value="" (empty) means it should output a blank string (e.g. name="")
-        private String value;
-
-        public Attribute( String key, String seq )
-        {
-            this.key = key;
-            this.value = seq;
-        }
-
-        public Attribute( Attribute other )
-        {
-            key = other.key;
-            value = other.value == null ? null : other.value;
-        }
-
-        public String getKey()
-        {
-            return key;
-        }
-
-        public void setKey( String key )
-        {
-            this.key = key;
-        }
-
-        public String getValue()
-        {
-            return value;
-        }
-
-        public void setValue( String seq )
-        {
-            this.value = seq;
-        }
-    }
 }

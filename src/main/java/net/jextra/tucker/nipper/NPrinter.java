@@ -148,10 +148,6 @@ public class NPrinter
                     printCr();
                     printLines( indent, line.getChildren( NLine.Type.continuation ) );
                     break;
-
-                case comment:
-                    // Ignore comment lines
-                    break;
             }
         }
     }

@@ -23,6 +23,7 @@ package net.jextra.tucker.tucker;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.*;
 
 /**
  * Used to store the state for output of a block.
@@ -52,11 +53,7 @@ public class OutputState
         this( other.writer );
         for ( String key : other.varValues.keySet() )
         {
-            String value = other.varValues.get( key );
-            if ( value != null )
-            {
-                varValues.put( key, value );
-            }
+            varValues.put( key, other.varValues.get( key ) );
         }
 
         this.depth = depth;
@@ -102,14 +99,19 @@ public class OutputState
 
     public void setVariableValue( String name, String value )
     {
-        if ( value != null )
+        if ( name == null )
         {
-            varValues.put( name, value );
+            return;
         }
-        else
-        {
-            varValues.remove( name );
-        }
+
+        //        if ( value != null )
+        //        {
+        varValues.put( name, value );
+        //        }
+        //        else
+        //        {
+        //            varValues.remove( name );
+        //        }
     }
 
     public void writeIndent()
@@ -127,14 +129,35 @@ public class OutputState
 
     public void writeString( String value )
     {
-        writer.write( processString( value ) );
+        String string = processString( value );
+        if ( string != null )
+        {
+            writer.write( string );
+        }
     }
 
     public String processString( String value )
     {
         if ( value == null )
         {
-            return value;
+            return null;
+        }
+
+        //
+        // See if the value is the special case of being a single variable. If it is mark it for later processing.
+        //
+        Pattern pattern = Pattern.compile( "\003.*\004" );
+        boolean singleVar = pattern.matcher( value ).matches();
+        boolean verbose = false;
+        if ( "\003checked\004".equals( value ) )
+        {
+            verbose = true;
+            System.out.println( "FOUND: " + value );
+        }
+
+        if ( value == null )
+        {
+            return null;
         }
 
         value = value.replace( '\001', '{' );
@@ -142,8 +165,22 @@ public class OutputState
 
         for ( String key : varValues.keySet() )
         {
-            value = value.replace( "\003" + key + "\004", varValues.get( key ) );
+            if ( verbose )
+            {
+                System.out.printf( "   processString key[%s] value[%s]\n", key, varValues.get( key ) );
+            }
+
+            String varValue = varValues.get( key );
+            value = value.replace( "\003" + key + "\004", varValue == null ? "" : varValue );
         }
+
+        // Special case if the single variable was never set the value should be null (not "").
+        if ( singleVar && pattern.matcher( value ).matches() )
+        {
+            return null;
+        }
+
+        // Any variables not found should be replaced with blank.
         value = value.replaceAll( "\003.*\004", "" );
 
         return value;

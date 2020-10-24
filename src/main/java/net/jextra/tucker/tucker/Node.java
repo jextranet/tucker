@@ -61,6 +61,9 @@ public abstract class Node
     {
         switch ( getNodeType() )
         {
+            case block:
+                return new Block( (Block) this );
+
             case tag:
                 return new TagNode( (TagNode) this );
 
@@ -71,7 +74,7 @@ public abstract class Node
                 return new RawTextNode( (RawTextNode) this );
         }
 
-        return null;
+        throw new RuntimeException( "Unexpected node type to clone: " + getNodeType() );
     }
 
     public void setIndent( int indent )
@@ -82,5 +85,20 @@ public abstract class Node
     public int getIndent()
     {
         return indent;
+    }
+
+    public void addAttribute( String key )
+    {
+        // Default is to throw away
+    }
+
+    public void addAttribute( String key, String value )
+    {
+        // Default is to throw away
+    }
+
+    public void addSegment( Segment segment )
+    {
+        // Default is to throw away
     }
 }

@@ -51,7 +51,7 @@ public class NBlock
     // public
     // ----------
 
-    public NBlock merge( NBlock other )
+    public NBlock addBlock( NBlock other )
     {
         for ( NLine line : other.lines )
         {

@@ -40,15 +40,12 @@ public class Tucker
     private enum State
     {
         start,
-        commentStart,
-        multilineComment,
-        multilineCommentEnd,
-        ignoreLine,
         tag,
         id,
         className,
         attributeStart,
         attributeName,
+        attributeBetween,
         attributeValueStart,
         attributeValue,
         attributeValueBang,
@@ -56,13 +53,11 @@ public class Tucker
         inlineStart,
         pipeStart,
         pipe,
-        extend,
         raw,
         bang,
         varStart,
         var,
-        varEnd,
-        done
+        varEnd
     }
     // @formatter:on
 
@@ -76,7 +71,7 @@ public class Tucker
     private HashMap<TagNode, String> pipeTexts;
 
     private Block activeBlock;
-    private TagNode activeTagNode;
+    private Node activeNode;
 
     // ============================================================
     // Constructors
@@ -143,10 +138,19 @@ public class Tucker
     {
         parseLines( in );
 
-        // Building the hierarchy is done after the fact
+        // Building the hierarchy is done after reading all the raw lines.
         for ( Block block : blocks.values() )
         {
             buildHierarchy( block );
+        }
+
+        // Replace all the auto-insertions
+        for ( Block block : blocks.values() )
+        {
+            for ( Node node : block.getNodes() )
+            {
+                autoInsert( node );
+            }
         }
     }
 
@@ -167,8 +171,6 @@ public class Tucker
     private void parseLines( BufferedReader in )
         throws IOException
     {
-        State state = State.start;
-        HashMap<Node, Integer> indents = new HashMap<>();
         activeBlock = null;
 
         //
@@ -197,7 +199,7 @@ public class Tucker
     private void parseLine( String line, int indent )
         throws IOException
     {
-        activeTagNode = null;
+        activeNode = null;
 
         char c = line.charAt( indent );
         switch ( c )
@@ -215,6 +217,16 @@ public class Tucker
                 }
                 break;
 
+            case '+':
+                if ( activeBlock != null )
+                {
+                    InsertionNode additionNode = parseInsertionPoint( line, indent + 1 );
+                    additionNode.setIndent( indent );
+                    additionNode.setAuto( true );
+                    activeBlock.addNode( additionNode );
+                }
+                break;
+
             case '=':
                 parseBlockName( line, indent + 1 );
                 break;
@@ -228,7 +240,7 @@ public class Tucker
                     activeBlock.addNode( tagNode );
 
                     // Fill out inlines
-                    for ( Segment segment : activeTagNode.getSegments() )
+                    for ( Segment segment : tagNode.getSegments() )
                     {
                         if ( segment.getType() == Segment.Type.inline )
                         {
@@ -241,37 +253,12 @@ public class Tucker
         }
     }
 
-    private InsertionNode parseInsertionPoint( String line, int indent )
-    {
-        StringBuilder builder = new StringBuilder();
-        for ( int pos = indent; pos < line.length(); pos++ )
-        {
-            char c = line.charAt( pos );
-            switch ( c )
-            {
-                // Any spaces in insertion names are thrown away.
-                case ' ':
-                case '\t':
-                    break;
-
-                default:
-                    builder.append( c );
-                    break;
-            }
-        }
-
-        InsertionNode insertionNode = new InsertionNode();
-        insertionNode.setName( builder.toString() );
-
-        return insertionNode;
-    }
-
     private void parseBlockName( String line, int indent )
     {
         StringBuilder builder = new StringBuilder();
-        for ( int pos = indent; pos < line.length(); pos++ )
+        for ( int p = indent; p < line.length(); p++ )
         {
-            char c = line.charAt( pos );
+            char c = line.charAt( p );
             switch ( c )
             {
                 // Ignore all redundant prefix "="'s.
@@ -299,10 +286,10 @@ public class Tucker
         StringBuilder builder = new StringBuilder();
         StringBuilder varNameBuilder = new StringBuilder();
 
-        int pos = indent;
-        for ( ; pos < line.length(); pos++ )
+        int p = indent;
+        for ( ; p < line.length(); p++ )
         {
-            char c = line.charAt( pos );
+            char c = line.charAt( p );
             switch ( state )
             {
                 case start:
@@ -413,10 +400,50 @@ public class Tucker
         return builder.toString();
     }
 
+    private InsertionNode parseInsertionPoint( String line, int indent )
+    {
+        int state = 0;
+        StringBuilder builder = new StringBuilder();
+        int p = indent;
+        for ( ; p < line.length(); p++ )
+        {
+            char c = line.charAt( p );
+            switch ( c )
+            {
+                // End of tag
+                case ' ':
+                case '\t':
+                    state = 1;
+                    break;
+
+                default:
+                    builder.append( c );
+                    break;
+            }
+
+            if ( state != 0 )
+            {
+                break;
+            }
+        }
+
+        InsertionNode insertionNode = new InsertionNode();
+        activeNode = insertionNode;
+        insertionNode.setName( builder.toString() );
+
+        parseAttributes( line, p );
+        for ( String key : insertionNode.getAttributes().keySet() )
+        {
+            System.out.printf( "ATT key[%s] value[%s]\n", key, insertionNode.getAttributes().get( key ).getValue() );
+        }
+
+        return insertionNode;
+    }
+
     private TagNode parseTag( String line )
         throws IOException
     {
-        activeTagNode = null;
+        activeNode = null;
         State state = State.tag;
         StringBuilder tagBuilder = new StringBuilder();
 
@@ -455,9 +482,10 @@ public class Tucker
             }
         }
 
-        activeTagNode = new TagNode();
-        activeTagNode.setName( tagBuilder.toString() );
-        if ( activeTagNode.getName().isEmpty() )
+        TagNode tagNode = new TagNode();
+        activeNode = tagNode;
+        tagNode.setName( tagBuilder.toString() );
+        if ( tagNode.getName().isEmpty() )
         {
             throw new IOException( String.format( "Tag cannot have an empty name [row:%d]", row ) );
         }
@@ -477,7 +505,7 @@ public class Tucker
             parsePipeData( line, pos );
         }
 
-        return activeTagNode;
+        return tagNode;
     }
 
     private int parseTagShortcuts( String line, int indent, State state )
@@ -498,13 +526,13 @@ public class Tucker
                             throw new IOException( "Cannot specify more than one # id shortcut" );
 
                         case '.':
-                            activeTagNode.addAttribute( "id", id.toString() );
+                            activeNode.addAttribute( "id", id.toString() );
                             id.setLength( 0 );
                             state = State.className;
                             break;
 
                         case ' ':
-                            activeTagNode.addAttribute( "id", id.toString() );
+                            activeNode.addAttribute( "id", id.toString() );
                             id.setLength( 0 );
 
                             // Done with shortcuts
@@ -520,19 +548,19 @@ public class Tucker
                     switch ( c )
                     {
                         case '#':
-                            activeTagNode.addAttribute( "class", className.toString() );
+                            activeNode.addAttribute( "class", className.toString() );
                             className.setLength( 0 );
                             state = State.id;
                             break;
 
                         case '.':
-                            activeTagNode.addAttribute( "class", className.toString() );
+                            activeNode.addAttribute( "class", className.toString() );
                             className.setLength( 0 );
                             state = State.className;
                             break;
 
                         case ' ':
-                            activeTagNode.addAttribute( "class", className.toString() );
+                            activeNode.addAttribute( "class", className.toString() );
                             className.setLength( 0 );
 
                             // Done with shortcuts
@@ -548,12 +576,12 @@ public class Tucker
 
         if ( id.length() > 0 )
         {
-            activeTagNode.addAttribute( "id", id.toString() );
+            activeNode.addAttribute( "id", id.toString() );
         }
 
         if ( className.length() > 0 )
         {
-            activeTagNode.addAttribute( "class", className.toString() );
+            activeNode.addAttribute( "class", className.toString() );
         }
 
         // This is a signal that there is nothing left on this line.
@@ -561,7 +589,6 @@ public class Tucker
     }
 
     private int parseAttributes( String line, int indent )
-        throws IOException
     {
         State state = State.attributeStart;
         StringBuilder attNameBuilder = new StringBuilder();
@@ -582,7 +609,7 @@ public class Tucker
                             break;
 
                         case '|':
-                            // Attributes are done.
+                            // Must be no attributes.
                             return pos + 1;
 
                         default:
@@ -600,6 +627,7 @@ public class Tucker
                         case '\t':
                             activeAttName = attNameBuilder.toString();
                             attNameBuilder.setLength( 0 );
+                            state = State.attributeBetween;
                             break;
 
                         case '=':
@@ -613,7 +641,7 @@ public class Tucker
                             attNameBuilder.setLength( 0 );
                             if ( activeAttName != null && !activeAttName.isEmpty() )
                             {
-                                activeTagNode.addAttribute( activeAttName );
+                                activeNode.addAttribute( activeAttName );
                             }
 
                             // Attributes are done.
@@ -621,6 +649,41 @@ public class Tucker
 
                         default:
                             attNameBuilder.append( c );
+                            break;
+                    }
+                    break;
+
+                case attributeBetween:
+                    switch ( c )
+                    {
+                        // Space between attName and = or end of attName
+                        case ' ':
+                        case '\t':
+                            break;
+
+                        case '=':
+                            state = State.attributeValueStart;
+                            break;
+
+                        case '|':
+                            activeAttName = attNameBuilder.toString();
+                            attNameBuilder.setLength( 0 );
+                            if ( activeAttName != null && !activeAttName.isEmpty() )
+                            {
+                                activeNode.addAttribute( activeAttName );
+                            }
+
+                            // Attributes are done.
+                            return pos + 1;
+
+                        // Attribute has not set value. This character must be next attribute
+                        default:
+                            if ( activeAttName != null && !activeAttName.isEmpty() )
+                            {
+                                activeNode.addAttribute( activeAttName );
+                            }
+                            attNameBuilder.append( c );
+                            state = State.attributeStart;
                             break;
                     }
                     break;
@@ -652,7 +715,7 @@ public class Tucker
                         case '"': // End of value
                             if ( activeAttName != null && !activeAttName.isEmpty() )
                             {
-                                activeTagNode.addAttribute( activeAttName, attValueBuilder.toString() );
+                                activeNode.addAttribute( activeAttName, attValueBuilder.toString() );
                                 activeAttName = null;
                             }
                             attNameBuilder.setLength( 0 );
@@ -723,7 +786,7 @@ public class Tucker
                     {
                         case '{':
                             Segment segment = new Segment( Segment.Type.text, textBuilder.toString() );
-                            activeTagNode.addSegment( segment );
+                            activeNode.addSegment( segment );
                             textBuilder.setLength( 0 );
                             state = State.inlineStart;
                             break;
@@ -754,7 +817,7 @@ public class Tucker
                     {
                         case '}':
                             Segment segment = new Segment( Segment.Type.inline, inlineBuilder.toString() );
-                            activeTagNode.addSegment( segment );
+                            activeNode.addSegment( segment );
                             inlineBuilder.setLength( 0 );
                             state = State.pipe;
                             break;
@@ -770,7 +833,7 @@ public class Tucker
         if ( textBuilder.length() > 0 )
         {
             Segment segment = new Segment( Segment.Type.text, textBuilder.toString() );
-            activeTagNode.addSegment( segment );
+            activeNode.addSegment( segment );
         }
 
         // This is a signal that there is nothing left on this line.
@@ -820,14 +883,14 @@ public class Tucker
         }
 
         HashMap<Integer, TagNode> parents = new HashMap<>();
-        ArrayList<TagNode> roots = new ArrayList<>();
+        ArrayList<Node> roots = new ArrayList<>();
         for ( Node node : block.getNodes() )
         {
             int d = depths.get( node );
             TagNode parent = parents.get( d - 1 );
             if ( parent == null )
             {
-                roots.add( (TagNode) node );
+                roots.add( node );
             }
             else
             {
@@ -844,9 +907,44 @@ public class Tucker
         // Clear out block and put only roots back (children are sub-items now).
         //
         block.clear();
-        for ( TagNode root : roots )
+        for ( Node root : roots )
         {
             block.addNode( root );
+        }
+    }
+
+    private void autoInsert( Node node )
+    {
+        switch ( node.getNodeType() )
+        {
+            case tag:
+                for ( Node child : ( (TagNode) node ).getChildren() )
+                {
+                    autoInsert( child );
+                }
+                break;
+
+            case insertion:
+                InsertionNode insertionNode = (InsertionNode) node;
+                if ( insertionNode.isAuto() )
+                {
+                    String name = insertionNode.getName();
+                    for ( Block block : blocks.values() )
+                    {
+                        if ( block.getName().equals( name ) )
+                        {
+                            Block clone = new Block( block );
+                            for ( Attribute att : insertionNode.getAttributes().values() )
+                            {
+                                clone.setVariable( att.getKey(), att.getValue() );
+                            }
+                            insertionNode.insert( clone );
+                            break;
+                        }
+                    }
+                    return;
+                }
+                break;
         }
     }
 }

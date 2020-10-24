@@ -91,11 +91,6 @@ public class Block extends Node
         for ( String key : varValues.keySet() )
         {
             String value = varValues.get( key );
-            if ( value == null )
-            {
-                continue;
-            }
-
             state.setVariableValue( key, value );
         }
 
@@ -177,7 +172,7 @@ public class Block extends Node
                     count += ( (TagNode) node ).insert( insertionName, block );
                     break;
 
-                // Odd case where there is an insertion point at the root level
+                // Special case where there is an insertion point at the root level
                 case insertion:
                     InsertionNode insertionNode = ( (InsertionNode) node );
                     if ( insertionName.equals( insertionNode.getName() ) )
