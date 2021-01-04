@@ -91,7 +91,7 @@ public class InsertionNode extends Node
         OutputState childState = new OutputState( state, state.getDepth() );
 
         state.writeIndent();
-        writer.println( "<!-- begin insertionPoint:" + name + " -->" );
+//        writer.println( "<!-- begin insertionPoint:" + name + " -->" );
 
         for ( Node child : children )
         {
@@ -99,7 +99,7 @@ public class InsertionNode extends Node
         }
 
         state.writeIndent();
-        writer.println( "<!-- end insertionPoint:" + name + " -->" );
+//        writer.println( "<!-- end insertionPoint:" + name + " -->" );
     }
 
     public boolean isAuto()
