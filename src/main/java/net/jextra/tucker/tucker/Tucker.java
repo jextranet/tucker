@@ -39,7 +39,7 @@ public class Tucker
     // @formatter:off
     private enum State
     {
-        start,
+        scan,
         tag,
         id,
         className,
@@ -53,11 +53,24 @@ public class Tucker
         inlineStart,
         pipeStart,
         pipe,
-        raw,
+        raw
+    }
+
+    private enum VarState
+    {
+        scan,
         bang,
         varStart,
         var,
-        varEnd
+        varComplex,
+        phrase
+    }
+
+    private enum InsertState
+    {
+        scan,
+        name,
+        end
     }
     // @formatter:on
 
@@ -65,13 +78,20 @@ public class Tucker
     // Fields
     // ============================================================
 
+    public static final char LEFT_BRACE = '\001';
+    public static final char RIGHT_BRACE = '\002';
+    public static final char BACK_TICK = '\003';
+    public static final char VAR_START = '\004';
+    public static final char VAR_END = '\005';
+    public static final char PHRASE = '\006';
+    public static final String LT = "&lt;";
+    public static final String GT = "&gt;";
+
     private int row;
     private HashMap<String, Block> blocks;
-    // This is a place to put pipeTexts until it gets processed after the Templar file read has been read.
-    private HashMap<TagNode, String> pipeTexts;
-
     private Block activeBlock;
     private Node activeNode;
+    private List<Problem> problems;
 
     // ============================================================
     // Constructors
@@ -80,6 +100,7 @@ public class Tucker
     public Tucker()
     {
         blocks = new HashMap<>();
+        problems = new ArrayList<>();
     }
 
     public Tucker( Path path )
@@ -168,6 +189,9 @@ public class Tucker
     // private
     // ----------
 
+    /**
+     * Break the BufferedReader into lines and parse each line separately.
+     */
     private void parseLines( BufferedReader in )
         throws IOException
     {
@@ -196,6 +220,9 @@ public class Tucker
         }
     }
 
+    /**
+     * Read a single line. First figure out the line type, then parse the rest of the line accordingly.
+     */
     private void parseLine( String line, int indent )
         throws IOException
     {
@@ -204,16 +231,29 @@ public class Tucker
         char c = line.charAt( indent );
         switch ( c )
         {
+            // Comment ... ignore.
             case '/':
-                // Comment ... ignore.
                 break;
 
+            // Block Definition
+            case '=':
+                parseBlockDefinition( line, indent + 1 );
+                break;
+
+            // Insertion Point
             case '>':
                 if ( activeBlock != null )
                 {
                     InsertionNode insertionNode = parseInsertionPoint( line, indent + 1 );
-                    insertionNode.setIndent( indent );
-                    activeBlock.addNode( insertionNode );
+                    if ( insertionNode != null )
+                    {
+                        insertionNode.setIndent( indent );
+                        activeBlock.addNode( insertionNode );
+                    }
+                }
+                else
+                {
+                    problems.add( new Problem( row, "Insertion Point is outside of a block definition" ) );
                 }
                 break;
 
@@ -221,20 +261,24 @@ public class Tucker
                 if ( activeBlock != null )
                 {
                     InsertionNode additionNode = parseInsertionPoint( line, indent + 1 );
-                    additionNode.setIndent( indent );
-                    additionNode.setAuto( true );
-                    activeBlock.addNode( additionNode );
+                    if ( additionNode != null )
+                    {
+                        additionNode.setIndent( indent );
+                        additionNode.setAuto( true );
+                        activeBlock.addNode( additionNode );
+                    }
+                }
+                else
+                {
+                    problems.add( new Problem( row, "Insertion Point is outside of a block definition" ) );
                 }
                 break;
 
-            case '=':
-                parseBlockName( line, indent + 1 );
-                break;
-
             default:
+                // All tags need to be in a block.
                 if ( activeBlock != null )
                 {
-                    line = processVars( line, indent );
+                    line = transformSpecials( line, indent );
                     TagNode tagNode = parseTag( line );
                     tagNode.setIndent( indent );
                     activeBlock.addNode( tagNode );
@@ -249,11 +293,192 @@ public class Tucker
                         }
                     }
                 }
+                else
+                {
+                    problems.add( new Problem( row, "Tag is outside of a block definition" ) );
+                }
                 break;
         }
     }
 
-    private void parseBlockName( String line, int indent )
+    /**
+     * Convert banged characters to single characters.
+     * Convert variable names to variable sections.
+     */
+    private String transformSpecials( String line, int indent )
+    {
+        VarState state = VarState.scan;
+        StringBuilder builder = new StringBuilder();
+        StringBuilder varNameBuilder = new StringBuilder();
+
+        int p = indent;
+        for ( ; p < line.length(); p++ )
+        {
+            char c = line.charAt( p );
+            switch ( state )
+            {
+                case scan:
+                    switch ( c )
+                    {
+                        case '\\':
+                            state = VarState.bang;
+                            break;
+
+                        case '$':
+                            state = VarState.varStart;
+                            break;
+
+                        case '`':
+                            builder.append( PHRASE );
+                            state = VarState.phrase;
+                            break;
+
+                        default:
+                            builder.append( c );
+                            break;
+                    }
+                    break;
+
+                case bang:
+                    switch ( c )
+                    {
+                        case '\\':
+                            builder.append( '\\' );
+                            break;
+
+                        case '$':
+                            builder.append( '$' );
+                            break;
+
+                        case '{':
+                            builder.append( LEFT_BRACE );
+                            break;
+
+                        case '}':
+                            builder.append( RIGHT_BRACE );
+                            break;
+
+                        case '`':
+                            builder.append( BACK_TICK );
+                            break;
+
+                        default:
+                            builder.append( '\\' );
+                            builder.append( c );
+                            problems.add( new Problem( row, "Illegal banged character '" + c + "'" ) );
+                            break;
+                    }
+                    state = VarState.scan;
+                    break;
+
+                case varStart:
+                    switch ( c )
+                    {
+                        case ' ':
+                        case '\t':
+                            // Ignore
+                            break;
+
+                        case '(':
+                            state = VarState.varComplex;
+                            break;
+
+                        default:
+                            if ( isVarChar( c ) )
+                            {
+                                varNameBuilder.append( c );
+                                state = VarState.var;
+                            }
+                            else
+                            {
+                                p--;
+                                state = VarState.scan;
+                            }
+                            break;
+                    }
+                    break;
+
+                case var:
+                    if ( isVarChar( c ) )
+                    {
+                        varNameBuilder.append( c );
+                    }
+                    else
+                    {
+                        builder.append( VAR_START );
+                        builder.append( varNameBuilder.toString() );
+                        varNameBuilder.setLength( 0 );
+                        builder.append( VAR_END );
+                        state = VarState.scan;
+                        p--;    // Back up so this character can get reprocessed outside of var state.
+                    }
+                    break;
+
+                case varComplex:
+                    switch ( c )
+                    {
+                        case ' ':
+                        case '\t':
+                            // Ignore
+                            break;
+
+                        case ')':
+                            builder.append( VAR_START );
+                            builder.append( varNameBuilder.toString() );
+                            varNameBuilder.setLength( 0 );
+                            builder.append( VAR_END );
+                            state = VarState.scan;
+                            break;
+
+                        default:
+                            varNameBuilder.append( c );
+                            break;
+                    }
+                    break;
+
+                case phrase:
+                    switch ( c )
+                    {
+                        case '`':
+                            builder.append( PHRASE );
+                            state = VarState.scan;
+                            break;
+
+                        default:
+                            builder.append( c );
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        return builder.toString();
+    }
+
+    private boolean isVarChar( char c )
+    {
+        if ( Character.isAlphabetic( c ) )
+        {
+            return true;
+        }
+
+        switch ( c )
+        {
+            case '-':
+            case '_':
+                return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Parses name of the block and makes it the activeBlock.
+     * <pre>
+     *     =name
+     * </pre>
+     */
+    private void parseBlockDefinition( String line, int indent )
     {
         StringBuilder builder = new StringBuilder();
         for ( int p = indent; p < line.length(); p++ )
@@ -276,133 +501,26 @@ public class Tucker
             }
         }
 
-        activeBlock = new Block( builder.toString() );
+        String name = builder.toString();
+        if ( name.trim().isEmpty() )
+        {
+            return;
+        }
+
+        activeBlock = new Block( name );
         blocks.put( activeBlock.getName(), activeBlock );
     }
 
-    private String processVars( String line, int indent )
-    {
-        State state = State.start;
-        StringBuilder builder = new StringBuilder();
-        StringBuilder varNameBuilder = new StringBuilder();
-
-        int p = indent;
-        for ( ; p < line.length(); p++ )
-        {
-            char c = line.charAt( p );
-            switch ( state )
-            {
-                case start:
-                    switch ( c )
-                    {
-                        case '\\':
-                            state = State.bang;
-                            break;
-
-                        case '{':
-                            state = State.varStart;
-                            break;
-
-                        default:
-                            builder.append( c );
-                            break;
-                    }
-                    break;
-
-                case bang:
-                    switch ( c )
-                    {
-                        case '\\':
-                            builder.append( '\\' );
-                            state = State.start;
-                            break;
-
-                        case '{':
-                            builder.append( '\001' );
-                            state = State.start;
-                            break;
-
-                        case '}':
-                            builder.append( '\002' );
-                            state = State.start;
-                            break;
-
-                        default:
-                            builder.append( c );
-                            break;
-                    }
-                    break;
-
-                case varStart:
-                    switch ( c )
-                    {
-                        case ' ':
-                        case '\t':
-                            // Ignore
-                            break;
-
-                        case '{':
-                            state = State.var;
-                            break;
-
-                        default:
-                            builder.append( '{' );
-                            builder.append( c );
-                            state = State.start;
-                            break;
-                    }
-                    break;
-
-                case var:
-                    switch ( c )
-                    {
-                        case ' ':
-                        case '\t':
-                            // Ignore
-                            break;
-
-                        case '}':
-                            state = State.varEnd;
-                            break;
-
-                        default:
-                            varNameBuilder.append( c );
-                            break;
-                    }
-                    break;
-
-                case varEnd:
-                    switch ( c )
-                    {
-                        case ' ':
-                        case '\t':
-                            // Ignore
-                            break;
-
-                        case '}':
-                            builder.append( '\003' );
-                            builder.append( varNameBuilder.toString() );
-                            varNameBuilder.setLength( 0 );
-                            builder.append( '\004' );
-                            state = State.start;
-                            break;
-
-                        default:
-                            // TODO maybe deal with all the text
-                            varNameBuilder.setLength( 0 );
-                            state = State.start;
-                            break;
-                    }
-                    break;
-            }
-        }
-
-        return builder.toString();
-    }
-
+    /**
+     * Parses name on an insertion line.
+     * <pre>
+     *     >name
+     * </pre>
+     */
     private InsertionNode parseInsertionPoint( String line, int indent )
     {
-        int state = 0;
+        // 0 start scan, 1 name, 2 end.
+        InsertState state = InsertState.scan;
         StringBuilder builder = new StringBuilder();
         int p = indent;
         for ( ; p < line.length(); p++ )
@@ -410,32 +528,36 @@ public class Tucker
             char c = line.charAt( p );
             switch ( c )
             {
-                // End of tag
+                // Space before tag or after tag
                 case ' ':
                 case '\t':
-                    state = 1;
+                    if ( state == InsertState.name )
+                    {
+                        state = InsertState.end;
+                    }
                     break;
 
                 default:
                     builder.append( c );
+                    state = InsertState.name;
                     break;
             }
 
-            if ( state != 0 )
+            if ( state == InsertState.end )
             {
                 break;
             }
         }
 
+        String name = builder.toString().trim();
+        if ( name.isEmpty() )
+        {
+            return null;
+        }
+
         InsertionNode insertionNode = new InsertionNode();
         activeNode = insertionNode;
-        insertionNode.setName( builder.toString() );
-
-        parseAttributes( line, p );
-        for ( String key : insertionNode.getAttributes().keySet() )
-        {
-            System.out.printf( "ATT key[%s] value[%s]\n", key, insertionNode.getAttributes().get( key ).getValue() );
-        }
+        insertionNode.setName( name );
 
         return insertionNode;
     }
@@ -445,8 +567,8 @@ public class Tucker
     {
         activeNode = null;
         State state = State.tag;
-        StringBuilder tagBuilder = new StringBuilder();
 
+        StringBuilder tagBuilder = new StringBuilder();
         int pos = 0;
         for ( ; pos < line.length(); pos++ )
         {
@@ -945,6 +1067,48 @@ public class Tucker
                     return;
                 }
                 break;
+        }
+    }
+
+    // ============================================================
+    // Inner Classes
+    // ============================================================
+
+    public static class Problem
+    {
+        private int row;
+        private String message;
+
+        Problem( int row, String message )
+        {
+            this.row = row;
+            this.message = message;
+        }
+
+        public int getRow()
+        {
+            return row;
+        }
+
+        public void setRow( int row )
+        {
+            this.row = row;
+        }
+
+        public String getMessage()
+        {
+            return message;
+        }
+
+        public void setMessage( String message )
+        {
+            this.message = message;
+        }
+
+        @Override
+        public String toString()
+        {
+            return String.format( "%d: %s", row, message );
         }
     }
 }

@@ -96,20 +96,20 @@ public class TagNode extends Node
     }
 
     @Override
-    public void write( OutputState state, boolean inline )
+    public void write( OutputContext ctx, boolean inline )
     {
-        PrintWriter writer = state.getWriter();
-        OutputState childState = new OutputState( state, state.getDepth() + 1 );
+        PrintWriter writer = ctx.getWriter();
+        OutputContext childState = new OutputContext( ctx, ctx.getDepth() + 1 );
 
         //
         // Write indent and tag
         //
         if ( !inline )
         {
-            state.writeIndent();
+            ctx.writeIndent();
         }
         writer.write( '<' );
-        state.writeString( name );
+        ctx.writeString( name );
 
         //
         // Write attributes
@@ -141,11 +141,11 @@ public class TagNode extends Node
             switch ( segment.getType() )
             {
                 case text:
-                    state.writeString( segment.getValue() );
+                    ctx.writeString( segment.getValue() );
                     break;
 
                 case inline:
-                    segment.getTagNode().write( state, true );
+                    segment.getTagNode().write( ctx, true );
                     break;
             }
         }
@@ -168,10 +168,10 @@ public class TagNode extends Node
         if ( multiline )
         {
             // writer.println();
-            state.writeIndent();
+            ctx.writeIndent();
         }
         writer.write( "</" );
-        state.writeString( name );
+        ctx.writeString( name );
         if ( !inline )
         {
             writer.println( '>' );
@@ -399,7 +399,7 @@ public class TagNode extends Node
     // private
     // ----------
 
-    private void writeAttribute( OutputState state, String key )
+    private void writeAttribute( OutputContext ctx, String key )
     {
         Attribute att = attributes.get( key );
         if ( att == null )
@@ -407,7 +407,7 @@ public class TagNode extends Node
             return;
         }
 
-        key = state.processString( key );
+        key = ctx.processString( key );
         if ( key == null || key.trim().isEmpty() )
         {
             return;
@@ -416,29 +416,29 @@ public class TagNode extends Node
         // This is the case where the key is specified by itself with no equals (e.g. checked)
         if ( att.getValue() == null )
         {
-            state.getWriter().print( " " );
-            state.writeString( key );
+            ctx.getWriter().print( " " );
+            ctx.writeString( key );
         }
         else
         {
-            String value = state.processString( att.getValue() );
+            String value = ctx.processString( att.getValue() );
             if ( value == null )
             {
                 // Instead of something like checked="", this simply means no attribute.
             }
             else
             {
-                PrintWriter writer = state.getWriter();
+                PrintWriter writer = ctx.getWriter();
                 writer.print( " " );
-                state.writeString( key );
+                ctx.writeString( key );
                 writer.print( "=\"" );
-                state.writeString( value );
+                ctx.writeString( value );
                 writer.print( "\"" );
             }
         }
     }
 
-    private boolean writeChild( OutputState state, Node node, boolean oldMultiline )
+    private boolean writeChild( OutputContext ctx, Node node, boolean oldMultiline )
     {
         boolean multiline = false;
 
@@ -448,30 +448,17 @@ public class TagNode extends Node
             case insertion:
                 if ( !oldMultiline )
                 {
-                    state.getWriter().println();
+                    ctx.getWriter().println();
                 }
                 multiline = true;
-                node.write( state, false );
+                node.write( ctx, false );
                 break;
 
             default:
-                node.write( state, false );
+                node.write( ctx, false );
                 break;
         }
 
         return multiline;
     }
-
-    private void substitute( String string )
-    {
-        string.replace( "\001", "{" );
-        string.replace( "\002", "}" );
-        string.replace( "\003", "{" );
-        string.replace( "\004", "}" );
-    }
-
-    // ============================================================
-    // Inner Classes
-    // ============================================================
-
 }

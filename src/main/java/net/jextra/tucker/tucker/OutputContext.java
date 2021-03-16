@@ -28,7 +28,7 @@ import java.util.regex.*;
 /**
  * Used to store the state for output of a block.
  */
-public class OutputState
+public class OutputContext
 {
     // ============================================================
     // Fields
@@ -42,13 +42,13 @@ public class OutputState
     // Constructors
     // ============================================================
 
-    public OutputState( PrintWriter writer )
+    public OutputContext( PrintWriter writer )
     {
         this.writer = writer;
         varValues = new HashMap<>();
     }
 
-    public OutputState( OutputState other, int depth )
+    public OutputContext( OutputContext other, int depth )
     {
         this( other.writer );
         for ( String key : other.varValues.keySet() )
@@ -104,14 +104,7 @@ public class OutputState
             return;
         }
 
-        //        if ( value != null )
-        //        {
         varValues.put( name, value );
-        //        }
-        //        else
-        //        {
-        //            varValues.remove( name );
-        //        }
     }
 
     public void writeIndent()
@@ -146,42 +139,29 @@ public class OutputState
         //
         // See if the value is the special case of being a single variable. If it is mark it for later processing.
         //
-        Pattern pattern = Pattern.compile( "\003.*\004" );
+        Pattern pattern = Pattern.compile( Tucker.VAR_START + ".*" + Tucker.VAR_END );
         boolean singleVar = pattern.matcher( value ).matches();
-        boolean verbose = false;
-        if ( "\003checked\004".equals( value ) )
-        {
-            verbose = true;
-            System.out.println( "FOUND: " + value );
-        }
 
-        if ( value == null )
-        {
-            return null;
-        }
-
-        value = value.replace( '\001', '{' );
-        value = value.replace( '\002', '}' );
+        value = value.replace( Tucker.LEFT_BRACE, '{' );
+        value = value.replace( Tucker.RIGHT_BRACE, '}' );
+        value = value.replace( Tucker.BACK_TICK, '`' );
+        value = value.replace( "<", Tucker.LT );
+        value = value.replace( ">", Tucker.GT );
 
         for ( String key : varValues.keySet() )
         {
-            if ( verbose )
-            {
-                System.out.printf( "   processString key[%s] value[%s]\n", key, varValues.get( key ) );
-            }
-
             String varValue = varValues.get( key );
-            value = value.replace( "\003" + key + "\004", varValue == null ? "" : varValue );
+            value = value.replace( Tucker.VAR_START + key + Tucker.VAR_END, varValue == null ? "" : varValue );
         }
 
-        // Special case if the single variable was never set the value should be null (not "").
+        // Special case if the single variable was never set, the value should be null (not "").
         if ( singleVar && pattern.matcher( value ).matches() )
         {
             return null;
         }
 
         // Any variables not found should be replaced with blank.
-        value = value.replaceAll( "\003.*\004", "" );
+        value = value.replaceAll( Tucker.VAR_START + ".*" + Tucker.VAR_END, "" );
 
         return value;
     }

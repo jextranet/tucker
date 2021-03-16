@@ -26,6 +26,9 @@ import java.util.*;
 
 /**
  * A Node that represents an insertion point into a block.
+ * <pre>
+ *      >insertion-point
+ * </pre>
  */
 public class InsertionNode extends Node
 {
@@ -85,21 +88,21 @@ public class InsertionNode extends Node
     }
 
     @Override
-    public void write( OutputState state, boolean inline )
+    public void write( OutputContext ctx, boolean inline )
     {
-        PrintWriter writer = state.getWriter();
-        OutputState childState = new OutputState( state, state.getDepth() );
+        PrintWriter writer = ctx.getWriter();
+        OutputContext childState = new OutputContext( ctx, ctx.getDepth() );
 
-        state.writeIndent();
-        writer.println( "<!-- begin insertionPoint:" + name + " -->" );
+        ctx.writeIndent();
+        //        writer.println( "<!-- begin insertionPoint:" + name + " -->" );
 
         for ( Node child : children )
         {
             child.write( childState, inline );
         }
 
-        state.writeIndent();
-        writer.println( "<!-- end insertionPoint:" + name + " -->" );
+        ctx.writeIndent();
+        //        writer.println( "<!-- end insertionPoint:" + name + " -->" );
     }
 
     public boolean isAuto()

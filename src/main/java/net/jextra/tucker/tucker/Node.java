@@ -22,7 +22,7 @@
 package net.jextra.tucker.tucker;
 
 /**
- * A Node is typically a single line in the .htmlt file. It can be either a TagNode (typical html tag with attributes and text), an InsertionNode to
+ * A Node is typically a single line in the .thtml file. It can be either a TagNode (typical html tag with attributes and text), an InsertionNode to
  * identify location that insertions can occur, or a RawTextNode to represent
  */
 public abstract class Node
@@ -55,7 +55,7 @@ public abstract class Node
 
     public abstract NodeType getNodeType();
 
-    public abstract void write( OutputState state, boolean inline );
+    public abstract void write( OutputContext ctx, boolean inline );
 
     public Node cloneNode()
     {

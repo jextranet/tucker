@@ -5,6 +5,9 @@
 
 package net.jextra.tucker.tucker;
 
+/**
+ * An attribute on a tag. For example name="fubar".
+ */
 public class Attribute
 {
     // ============================================================

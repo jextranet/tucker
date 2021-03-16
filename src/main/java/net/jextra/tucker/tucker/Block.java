@@ -25,7 +25,7 @@ import java.io.*;
 import java.util.*;
 
 /**
- * A block is a named group of HTML Elements.
+ * A block is a group of HTML Elements, potentially named.
  */
 public class Block extends Node
 {
@@ -84,19 +84,19 @@ public class Block extends Node
     }
 
     @Override
-    public void write( OutputState state, boolean inline )
+    public void write( OutputContext ctx, boolean inline )
     {
         // Copy varValues to the state.
-        state.clearVariableValues();
+        ctx.clearVariableValues();
         for ( String key : varValues.keySet() )
         {
             String value = varValues.get( key );
-            state.setVariableValue( key, value );
+            ctx.setVariableValue( key, value );
         }
 
         for ( Node node : nodes )
         {
-            node.write( state, false );
+            node.write( ctx, false );
         }
     }
 
@@ -230,8 +230,8 @@ public class Block extends Node
     {
         StringWriter stringWriter = new StringWriter();
         PrintWriter writer = new PrintWriter( stringWriter );
-        OutputState state = new OutputState( writer );
-        write( state, false );
+        OutputContext ctx = new OutputContext( writer );
+        write( ctx, false );
         writer.close();
 
         return stringWriter.toString();

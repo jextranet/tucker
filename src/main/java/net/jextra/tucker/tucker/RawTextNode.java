@@ -66,9 +66,9 @@ public class RawTextNode extends Node
     }
 
     @Override
-    public void write( OutputState state, boolean inline )
+    public void write( OutputContext ctx, boolean inline )
     {
-        PrintWriter writer = state.getWriter();
+        PrintWriter writer = ctx.getWriter();
         writer.write( text );
     }
 
