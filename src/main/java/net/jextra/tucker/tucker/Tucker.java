@@ -63,7 +63,10 @@ public class Tucker
         varStart,
         var,
         varComplex,
-        phrase
+        phrase,
+        varStart_old,
+        var_old,
+        varEnd_old
     }
 
     private enum InsertState
@@ -83,7 +86,8 @@ public class Tucker
     public static final char BACK_TICK = '\003';
     public static final char VAR_START = '\004';
     public static final char VAR_END = '\005';
-    public static final char PHRASE = '\006';
+    public static final char PHRASE_START = '\006';
+    public static final char PHRASE_END = '\007';
     public static final String LT = "&lt;";
     public static final String GT = "&gt;";
 
@@ -312,6 +316,7 @@ public class Tucker
         StringBuilder varNameBuilder = new StringBuilder();
 
         int p = indent;
+        boolean inPhrase = false;
         for ( ; p < line.length(); p++ )
         {
             char c = line.charAt( p );
@@ -328,9 +333,13 @@ public class Tucker
                             state = VarState.varStart;
                             break;
 
+                        case '{':
+                            state = VarState.varStart_old;
+                            break;
+
                         case '`':
-                            builder.append( PHRASE );
-                            state = VarState.phrase;
+                            builder.append( inPhrase ? PHRASE_END : PHRASE_START );
+                            inPhrase = !inPhrase;
                             break;
 
                         default:
@@ -391,6 +400,7 @@ public class Tucker
                             }
                             else
                             {
+                                // $ following by something that cannot be a variable character is a problem. Back up to reprocess.
                                 p--;
                                 state = VarState.scan;
                             }
@@ -407,10 +417,10 @@ public class Tucker
                     {
                         builder.append( VAR_START );
                         builder.append( varNameBuilder.toString() );
-                        varNameBuilder.setLength( 0 );
                         builder.append( VAR_END );
+                        varNameBuilder.setLength( 0 );
                         state = VarState.scan;
-                        p--;    // Back up so this character can get reprocessed outside of var state.
+                        p--;    // Back up so current character can get reprocessed outside of var state.
                     }
                     break;
 
@@ -425,8 +435,8 @@ public class Tucker
                         case ')':
                             builder.append( VAR_START );
                             builder.append( varNameBuilder.toString() );
-                            varNameBuilder.setLength( 0 );
                             builder.append( VAR_END );
+                            varNameBuilder.setLength( 0 );
                             state = VarState.scan;
                             break;
 
@@ -436,11 +446,80 @@ public class Tucker
                     }
                     break;
 
+                case varStart_old:
+                    switch ( c )
+                    {
+                        case ' ':
+                        case '\t':
+                            // Ignore
+                            break;
+
+                        case '{':
+                            state = VarState.var_old;
+                            break;
+
+                        default:
+                            builder.append( '{' );
+                            builder.append( c );
+                            state = VarState.scan;
+                    }
+                    break;
+
+                case var_old:
+                    switch ( c )
+                    {
+                        case ' ':
+                        case '\t':
+                            // Ignore
+                            break;
+
+                        case ')':
+                            builder.append( VAR_START );
+                            builder.append( varNameBuilder.toString() );
+                            builder.append( VAR_END );
+                            varNameBuilder.setLength( 0 );
+                            state = VarState.scan;
+                            break;
+
+                        case '}':
+                            state = VarState.varEnd_old;
+                            break;
+
+                        default:
+                            varNameBuilder.append( c );
+                            break;
+                    }
+                    break;
+
+                case varEnd_old:
+                    switch ( c )
+                    {
+                        case ' ':
+                        case '\t':
+                            // Ignore space between "}  }"
+                            break;
+
+                        case '}':
+                            builder.append( VAR_START );
+                            builder.append( varNameBuilder.toString() );
+                            builder.append( VAR_END );
+                            varNameBuilder.setLength( 0 );
+                            state = VarState.scan;
+                            break;
+
+                        default:
+                            builder.append( c );
+                            varNameBuilder.setLength( 0 );
+                            state = VarState.scan;
+                            break;
+                    }
+                    break;
+
                 case phrase:
                     switch ( c )
                     {
                         case '`':
-                            builder.append( PHRASE );
+                            builder.append( PHRASE_END );
                             state = VarState.scan;
                             break;
 
@@ -450,6 +529,22 @@ public class Tucker
                     }
                     break;
             }
+        }
+
+        //
+        // Handle the state the parsing was left in.
+        //
+        switch ( state )
+        {
+            case var:
+            case varComplex:
+            case var_old:
+            case varEnd_old:
+                builder.append( VAR_START );
+                builder.append( varNameBuilder.toString() );
+                builder.append( VAR_END );
+                varNameBuilder.setLength( 0 );
+                break;
         }
 
         return builder.toString();

@@ -37,6 +37,7 @@ public class OutputContext
     private PrintWriter writer;
     private int depth;
     private Map<String, String> varValues;
+    private Translator translator;
 
     // ============================================================
     // Constructors
@@ -151,7 +152,21 @@ public class OutputContext
         for ( String key : varValues.keySet() )
         {
             String varValue = varValues.get( key );
-            value = value.replace( Tucker.VAR_START + key + Tucker.VAR_END, varValue == null ? "" : varValue );
+            String newValue = value.replace( Tucker.VAR_START + key + Tucker.VAR_END, varValue == null ? "" : varValue );
+            value = newValue;
+        }
+
+        //
+        // Translate any phrases on the line.
+        //
+        if ( translator != null )
+        {
+            Pattern phrasePattern = Pattern.compile(
+                "([^" + Tucker.PHRASE_START + "]*)" + Tucker.PHRASE_START + "([^" + Tucker.PHRASE_END + "]*)" + Tucker.PHRASE_END + "(.*)" );
+            for ( Matcher m = phrasePattern.matcher( value ); m.matches(); m = phrasePattern.matcher( value ) )
+            {
+                value = m.group( 1 ) + translate( m.group( 2 ) ) + m.group( 3 );
+            }
         }
 
         // Special case if the single variable was never set, the value should be null (not "").
@@ -160,9 +175,37 @@ public class OutputContext
             return null;
         }
 
-        // Any variables not found should be replaced with blank.
-        value = value.replaceAll( Tucker.VAR_START + ".*" + Tucker.VAR_END, "" );
+        // Any special characters need to be removed.
+        value = value.replaceAll( "" + Tucker.VAR_START, "" );
+        value = value.replaceAll( "" + Tucker.VAR_END, "" );
+        value = value.replaceAll( "" + Tucker.PHRASE_START, "" );
+        value = value.replaceAll( "" + Tucker.PHRASE_END, "" );
 
         return value;
+    }
+
+    protected String translate( String sourceString )
+    {
+        if ( sourceString == null || translator == null )
+        {
+            return sourceString;
+        }
+
+        if ( translator == null )
+        {
+            return sourceString;
+        }
+
+        try
+        {
+            String targetString = translator.translate( sourceString );
+
+            return targetString == null ? sourceString : targetString;
+        }
+        catch ( Exception e )
+        {
+            // Default is to fail the translation and do nothing.
+            return sourceString;
+        }
     }
 }
