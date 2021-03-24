@@ -424,7 +424,7 @@ public class TagNode extends Node
             String value = ctx.processString( att.getValue() );
             if ( value == null )
             {
-                // Instead of something like checked="", this simply means no attribute.
+                // Special case, Instead of something like checked="", this simply means no attribute.
             }
             else
             {

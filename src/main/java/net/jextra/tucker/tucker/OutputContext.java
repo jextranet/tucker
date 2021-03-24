@@ -138,22 +138,41 @@ public class OutputContext
         }
 
         //
-        // See if the value is the special case of being a single variable. If it is mark it for later processing.
+        // Replace all replacement characters.
         //
-        Pattern pattern = Pattern.compile( Tucker.VAR_START + ".*" + Tucker.VAR_END );
-        boolean singleVar = pattern.matcher( value ).matches();
-
         value = value.replace( Tucker.LEFT_BRACE, '{' );
         value = value.replace( Tucker.RIGHT_BRACE, '}' );
         value = value.replace( Tucker.BACK_TICK, '`' );
         value = value.replace( "<", Tucker.LT );
         value = value.replace( ">", Tucker.GT );
 
-        for ( String key : varValues.keySet() )
+        //
+        // See if the value is the special case of being a single variable. If it is, mark it for later processing.
+        //
+        Pattern singleVarPattern = Pattern.compile( Tucker.VAR_START + ".*" + Tucker.VAR_END );
+        boolean singleVar = singleVarPattern.matcher( value ).matches();
+
+        //
+        // Replace variable values
+        //
+        int varReplacedCount = 0;
+        int varNotSetCount = 0;
+        Pattern varPattern = Pattern
+            .compile( "([^" + Tucker.VAR_START + "]*)" + Tucker.VAR_START + "([^" + Tucker.VAR_END + "]*)" + Tucker.VAR_END + "(.*)" );
+        for ( Matcher m = varPattern.matcher( value ); m.matches(); m = varPattern.matcher( value ) )
         {
-            String varValue = varValues.get( key );
-            String newValue = value.replace( Tucker.VAR_START + key + Tucker.VAR_END, varValue == null ? "" : varValue );
-            value = newValue;
+            String var = m.group( 2 );
+            String varValue = varValues.get( var );
+            if ( varValue == null )
+            {
+                varNotSetCount++;
+                value = m.group( 1 ) + m.group( 3 );
+            }
+            else
+            {
+                varReplacedCount++;
+                value = m.group( 1 ) + varValue + m.group( 3 );
+            }
         }
 
         //
@@ -169,17 +188,15 @@ public class OutputContext
             }
         }
 
+        // Clear our phrase markers if not used.
+        value = value.replaceAll( "" + Tucker.PHRASE_START, "" );
+        value = value.replaceAll( "" + Tucker.PHRASE_END, "" );
+
         // Special case if the single variable was never set, the value should be null (not "").
-        if ( singleVar && pattern.matcher( value ).matches() )
+        if ( varReplacedCount == 0 && varNotSetCount == 1 && value.trim().isEmpty() )
         {
             return null;
         }
-
-        // Any special characters need to be removed.
-        value = value.replaceAll( "" + Tucker.VAR_START, "" );
-        value = value.replaceAll( "" + Tucker.VAR_END, "" );
-        value = value.replaceAll( "" + Tucker.PHRASE_START, "" );
-        value = value.replaceAll( "" + Tucker.PHRASE_END, "" );
 
         return value;
     }
