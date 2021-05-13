@@ -86,7 +86,7 @@ public class Block extends Node
     @Override
     public void write( OutputContext ctx, boolean inline )
     {
-        // Copy varValues to the state.
+        // Copy varValues to the context.
         ctx.clearVariableValues();
         for ( String key : varValues.keySet() )
         {

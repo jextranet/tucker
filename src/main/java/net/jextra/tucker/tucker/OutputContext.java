@@ -49,13 +49,14 @@ public class OutputContext
         varValues = new HashMap<>();
     }
 
-    public OutputContext( OutputContext other, int depth )
+    public OutputContext( OutputContext parent, int depth )
     {
-        this( other.writer );
-        for ( String key : other.varValues.keySet() )
+        this( parent.writer );
+        for ( String key : parent.varValues.keySet() )
         {
-            varValues.put( key, other.varValues.get( key ) );
+            varValues.put( key, parent.varValues.get( key ) );
         }
+        this.translator = parent.translator;
 
         this.depth = depth;
     }
@@ -76,6 +77,17 @@ public class OutputContext
     public void setWriter( PrintWriter writer )
     {
         this.writer = writer;
+    }
+
+    public Translator getTranslator()
+    {
+        return translator;
+    }
+
+    public void setTranslator( Translator translator )
+    {
+        this.translator = translator;
+        transformString( "setTranslator=" + translator );
     }
 
     public int getDepth()
@@ -123,14 +135,14 @@ public class OutputContext
 
     public void writeString( String value )
     {
-        String string = processString( value );
+        String string = transformString( value );
         if ( string != null )
         {
             writer.write( string );
         }
     }
 
-    public String processString( String value )
+    public String transformString( String value )
     {
         if ( value == null )
         {
@@ -145,12 +157,6 @@ public class OutputContext
         value = value.replace( Tucker.BACK_TICK, '`' );
         value = value.replace( "<", Tucker.LT );
         value = value.replace( ">", Tucker.GT );
-
-        //
-        // See if the value is the special case of being a single variable. If it is, mark it for later processing.
-        //
-        Pattern singleVarPattern = Pattern.compile( Tucker.VAR_START + ".*" + Tucker.VAR_END );
-        boolean singleVar = singleVarPattern.matcher( value ).matches();
 
         //
         // Replace variable values
@@ -201,14 +207,14 @@ public class OutputContext
         return value;
     }
 
+    // ----------
+    // protected
+    // ----------
+
     protected String translate( String sourceString )
     {
+        transformString( "translate(" + translator + ") " + sourceString );
         if ( sourceString == null || translator == null )
-        {
-            return sourceString;
-        }
-
-        if ( translator == null )
         {
             return sourceString;
         }

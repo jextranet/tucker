@@ -90,15 +90,14 @@ public class InsertionNode extends Node
     @Override
     public void write( OutputContext ctx, boolean inline )
     {
-        PrintWriter writer = ctx.getWriter();
-        OutputContext childState = new OutputContext( ctx, ctx.getDepth() );
+        OutputContext childCtx = new OutputContext( ctx, ctx.getDepth() );
 
         ctx.writeIndent();
         //        writer.println( "<!-- begin insertionPoint:" + name + " -->" );
 
         for ( Node child : children )
         {
-            child.write( childState, inline );
+            child.write( childCtx, inline );
         }
 
         ctx.writeIndent();

@@ -99,7 +99,7 @@ public class TagNode extends Node
     public void write( OutputContext ctx, boolean inline )
     {
         PrintWriter writer = ctx.getWriter();
-        OutputContext childState = new OutputContext( ctx, ctx.getDepth() + 1 );
+        OutputContext childCtx = new OutputContext( ctx, ctx.getDepth() + 1 );
 
         //
         // Write indent and tag
@@ -117,12 +117,12 @@ public class TagNode extends Node
         // Always do id then class then everything else
         if ( attributes.containsKey( "id" ) )
         {
-            writeAttribute( childState, "id" );
+            writeAttribute( childCtx, "id" );
         }
 
         if ( attributes.containsKey( "class" ) )
         {
-            writeAttribute( childState, "class" );
+            writeAttribute( childCtx, "class" );
         }
 
         for ( String key : attributes.keySet() )
@@ -132,7 +132,7 @@ public class TagNode extends Node
                 continue;
             }
 
-            writeAttribute( childState, key );
+            writeAttribute( childCtx, key );
         }
         writer.write( ">" );
 
@@ -156,7 +156,7 @@ public class TagNode extends Node
         boolean multiline = false;
         for ( Node child : children )
         {
-            if ( writeChild( childState, child, multiline ) )
+            if ( writeChild( childCtx, child, multiline ) )
             {
                 multiline = true;
             }
@@ -407,7 +407,7 @@ public class TagNode extends Node
             return;
         }
 
-        key = ctx.processString( key );
+        key = ctx.transformString( key );
         if ( key == null || key.trim().isEmpty() )
         {
             return;
@@ -421,7 +421,7 @@ public class TagNode extends Node
         }
         else
         {
-            String value = ctx.processString( att.getValue() );
+            String value = ctx.transformString( att.getValue() );
             if ( value == null )
             {
                 // Special case, Instead of something like checked="", this simply means no attribute.
