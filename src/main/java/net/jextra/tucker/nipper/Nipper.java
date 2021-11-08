@@ -24,7 +24,6 @@ package net.jextra.tucker.nipper;
 import java.io.*;
 import java.net.*;
 import java.nio.file.*;
-import jdk.nashorn.api.scripting.*;
 
 /**
  * Nip parser and engine that outputs the corresponding CSS text.
@@ -91,7 +90,7 @@ public class Nipper
     public NBlock parse( URL asset )
         throws IOException
     {
-        BufferedReader in = new BufferedReader( new URLReader( asset ) );
+        BufferedReader in = new BufferedReader( new InputStreamReader( asset.openStream() ) );
         NBlock model = parse( in );
         in.close();
 

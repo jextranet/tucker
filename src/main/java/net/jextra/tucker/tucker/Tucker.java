@@ -25,7 +25,6 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.util.*;
-import jdk.nashorn.api.scripting.*;
 
 /**
  * Template-HTML parser and engine that outputs the corresponding HTML text.
@@ -138,7 +137,7 @@ public class Tucker
         throws IOException
     {
         this();
-        BufferedReader reader = new BufferedReader( new URLReader( asset ) );
+        BufferedReader reader = new BufferedReader( new InputStreamReader( asset.openStream() ) );
         parse( reader );
         reader.close();
     }

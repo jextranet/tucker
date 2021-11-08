@@ -76,7 +76,7 @@ public class NBlock
         varValues.put( name, value );
     }
 
-    public Map<String, String> getVarValues()
+    public Map<String, String> getVariableValues()
     {
         return varValues;
     }
@@ -109,7 +109,7 @@ public class NBlock
                 ArrayList<Fragment> newFrags = new ArrayList<>();
                 for ( Fragment f : frags )
                 {
-                    // If a value from a variable, do not let double-substitutions.
+                    // If a value is from a variable, do not let double-substitutions.
                     if ( f.getValue() != null )
                     {
                         newFrags.add( f );

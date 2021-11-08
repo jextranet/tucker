@@ -234,6 +234,7 @@ public class NReader
             line.setValue( line.getContent().substring( colon + 1 ).trim() );
             model.setVariableValue( line.getName(), line.getValue() );
         }
+        // Set value to a blank string.
         else
         {
             line.setName( line.getContent().substring( 1 ).trim() );
