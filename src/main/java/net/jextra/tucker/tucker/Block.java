@@ -23,6 +23,7 @@ package net.jextra.tucker.tucker;
 
 import java.io.*;
 import java.util.*;
+import net.jextra.tucker.encoder.*;
 
 /**
  * A block is a group of HTML Elements, potentially named.
@@ -155,7 +156,18 @@ public class Block extends Node
 
     public Block setVariable( String name, String value )
     {
-        varValues.put( name, value );
+        setVariable( name, value, true );
+
+        return this;
+    }
+
+    public Block setVariable( String name, String value, Boolean encode )
+    {
+        if (encode) {
+            varValues.put( name, Encoder.encodeForHtml( value ) );
+        } else {
+            varValues.put( name, value );
+        }
 
         return this;
     }
