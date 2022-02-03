@@ -114,7 +114,7 @@ public class TagNode extends Node
         //
         // Write attributes
         //
-        // Always do id then class then everything else
+        // Always write id first, then class, then everything else.
         if ( attributes.containsKey( "id" ) )
         {
             writeAttribute( childCtx, "id" );
@@ -329,7 +329,7 @@ public class TagNode extends Node
         children.add( node );
     }
 
-    public int insert( String insertionName, Block block )
+    public int insert( String insertionName, Node node )
     {
         int count = 0;
 
@@ -339,14 +339,14 @@ public class TagNode extends Node
             {
                 // Recurse
                 case tag:
-                    count += ( (TagNode) child ).insert( insertionName, block );
+                    count += ( (TagNode) child ).insert( insertionName, node );
                     break;
 
                 case insertion:
                     InsertionNode insertionNode = ( (InsertionNode) child );
                     if ( insertionName.equals( insertionNode.getName() ) )
                     {
-                        insertionNode.insert( block );
+                        insertionNode.insert( node );
                         count++;
                     }
             }

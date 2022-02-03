@@ -65,7 +65,9 @@ public class Tucker
         phrase,
         varStart_old,
         var_old,
-        varEnd_old
+        varEnd_old,
+        boolStart,
+        bool
     }
 
     private enum InsertState
@@ -80,13 +82,16 @@ public class Tucker
     // Fields
     // ============================================================
 
-    public static final char LEFT_BRACE = '\001';
-    public static final char RIGHT_BRACE = '\002';
-    public static final char BACK_TICK = '\003';
-    public static final char VAR_START = '\004';
-    public static final char VAR_END = '\005';
-    public static final char PHRASE_START = '\006';
-    public static final char PHRASE_END = '\007';
+    public static final char LEFT_BRACE = 1;
+    public static final char RIGHT_BRACE = 2;
+    public static final char BACK_TICK = 3;
+    public static final char VAR_START = 4;
+    public static final char VAR_END = 5;
+    public static final char PHRASE_START = 6;
+    public static final char PHRASE_END = 7;
+    public static final char BOOL_START = 28;   // arbitrary control character that does not conflict with processing (8 does conflict).
+    public static final char BOOL_END = 29;
+
     public static final String LT = "&lt;";
     public static final String GT = "&gt;";
 
@@ -236,6 +241,7 @@ public class Tucker
         {
             // Comment ... ignore.
             case '/':
+            case '#':
                 break;
 
             // Block Definition
@@ -260,6 +266,7 @@ public class Tucker
                 }
                 break;
 
+            // Continuation
             case '+':
                 if ( activeBlock != null )
                 {
@@ -273,7 +280,7 @@ public class Tucker
                 }
                 else
                 {
-                    problems.add( new Problem( row, "Insertion Point is outside of a block definition" ) );
+                    problems.add( new Problem( row, "Continuation Point is outside of a block definition" ) );
                 }
                 break;
 
@@ -306,7 +313,7 @@ public class Tucker
 
     /**
      * Convert banged characters to single characters.
-     * Convert variable names to variable sections.
+     * Convert variable/boolean names to variable/boolean sections.
      */
     private String transformSpecials( String line, int indent )
     {
@@ -330,6 +337,10 @@ public class Tucker
 
                         case '$':
                             state = VarState.varStart;
+                            break;
+
+                        case '&':
+                            state = VarState.boolStart;
                             break;
 
                         case '{':
@@ -356,6 +367,10 @@ public class Tucker
 
                         case '$':
                             builder.append( '$' );
+                            break;
+
+                        case '&':
+                            builder.append( '&' );
                             break;
 
                         case '{':
@@ -415,7 +430,7 @@ public class Tucker
                     else
                     {
                         builder.append( VAR_START );
-                        builder.append( varNameBuilder.toString() );
+                        builder.append( varNameBuilder );
                         builder.append( VAR_END );
                         varNameBuilder.setLength( 0 );
                         state = VarState.scan;
@@ -433,7 +448,7 @@ public class Tucker
 
                         case ')':
                             builder.append( VAR_START );
-                            builder.append( varNameBuilder.toString() );
+                            builder.append( varNameBuilder );
                             builder.append( VAR_END );
                             varNameBuilder.setLength( 0 );
                             state = VarState.scan;
@@ -514,6 +529,46 @@ public class Tucker
                     }
                     break;
 
+                case boolStart:
+                    switch ( c )
+                    {
+                        case ' ':
+                        case '\t':
+                            // Ignore
+                            break;
+
+                        default:
+                            if ( isVarChar( c ) )
+                            {
+                                varNameBuilder.append( c );
+                                state = VarState.bool;
+                            }
+                            else
+                            {
+                                // & following by something that cannot be a variable character is a problem. Back up to reprocess.
+                                p--;
+                                state = VarState.scan;
+                            }
+                            break;
+                    }
+                    break;
+
+                case bool:
+                    if ( isVarChar( c ) )
+                    {
+                        varNameBuilder.append( c );
+                    }
+                    else
+                    {
+                        builder.append( BOOL_START );
+                        builder.append( varNameBuilder );
+                        builder.append( BOOL_END );
+                        varNameBuilder.setLength( 0 );
+                        state = VarState.scan;
+                        p--;    // Back up so current character can get reprocessed outside of var state.
+                    }
+                    break;
+
                 case phrase:
                     switch ( c )
                     {
@@ -540,8 +595,15 @@ public class Tucker
             case var_old:
             case varEnd_old:
                 builder.append( VAR_START );
-                builder.append( varNameBuilder.toString() );
+                builder.append( varNameBuilder );
                 builder.append( VAR_END );
+                varNameBuilder.setLength( 0 );
+                break;
+
+            case bool:
+                builder.append( BOOL_START );
+                builder.append( varNameBuilder );
+                builder.append( BOOL_END );
                 varNameBuilder.setLength( 0 );
                 break;
         }

@@ -26,7 +26,7 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Used to store the state for output of a block.
+ * Used to store the state for output of blocks.
  */
 public class OutputContext
 {
@@ -37,6 +37,7 @@ public class OutputContext
     private PrintWriter writer;
     private int depth;
     private Map<String, String> varValues;
+    private Map<String, Boolean> boolValues;
     private Translator translator;
 
     // ============================================================
@@ -47,6 +48,7 @@ public class OutputContext
     {
         this.writer = writer;
         varValues = new HashMap<>();
+        boolValues = new HashMap<>();
     }
 
     public OutputContext( OutputContext parent, int depth )
@@ -55,6 +57,10 @@ public class OutputContext
         for ( String key : parent.varValues.keySet() )
         {
             varValues.put( key, parent.varValues.get( key ) );
+        }
+        for ( String key : parent.boolValues.keySet() )
+        {
+            boolValues.put( key, parent.boolValues.get( key ) );
         }
         this.translator = parent.translator;
 
@@ -87,7 +93,6 @@ public class OutputContext
     public void setTranslator( Translator translator )
     {
         this.translator = translator;
-        transformString( "setTranslator=" + translator );
     }
 
     public int getDepth()
@@ -118,6 +123,21 @@ public class OutputContext
         }
 
         varValues.put( name, value );
+    }
+
+    public boolean getBooleanValue( String name )
+    {
+        return boolValues.get( name ) == null ? false : boolValues.get( name );
+    }
+
+    public void setBooleanValue( String name, Boolean value )
+    {
+        if ( name == null )
+        {
+            return;
+        }
+
+        boolValues.put( name, value );
     }
 
     public void writeIndent()
@@ -163,8 +183,8 @@ public class OutputContext
         //
         int varReplacedCount = 0;
         int varNotSetCount = 0;
-        Pattern varPattern = Pattern
-            .compile( "([^" + Tucker.VAR_START + "]*)" + Tucker.VAR_START + "([^" + Tucker.VAR_END + "]*)" + Tucker.VAR_END + "(.*)" );
+        Pattern varPattern = Pattern.compile(
+            "([^" + Tucker.VAR_START + "]*)" + Tucker.VAR_START + "([^" + Tucker.VAR_END + "]*)" + Tucker.VAR_END + "(.*)" );
         for ( Matcher m = varPattern.matcher( value ); m.matches(); m = varPattern.matcher( value ) )
         {
             String var = m.group( 2 );
@@ -182,6 +202,29 @@ public class OutputContext
         }
 
         //
+        // Replace boolean values
+        //
+        Pattern boolPattern = Pattern.compile(
+            "([^" + Tucker.BOOL_START + "]*)" + Tucker.BOOL_START + "([^" + Tucker.BOOL_END + "]*)" + Tucker.BOOL_END + "(.*)" );
+        for ( Matcher m = boolPattern.matcher( value ); m.matches(); m = boolPattern.matcher( value ) )
+        {
+            String var = m.group( 2 );
+            System.out.println( "var=" + var );
+            boolean boolValue = boolValues.get( var ) == null ? false : boolValues.get( var );
+            System.out.println( "boolValue=" + boolValue );
+            if ( boolValue )
+            {
+                varReplacedCount++;
+                value = m.group( 1 ) + var + m.group( 3 );
+            }
+            else
+            {
+                varNotSetCount++;
+                value = m.group( 1 ) + m.group( 3 );
+            }
+        }
+
+        //
         // Translate any phrases on the line.
         //
         if ( translator != null )
@@ -194,11 +237,13 @@ public class OutputContext
             }
         }
 
-        // Clear our phrase markers if not used.
+        // Clear our the phrase markers if they were not replaced.
         value = value.replaceAll( "" + Tucker.PHRASE_START, "" );
         value = value.replaceAll( "" + Tucker.PHRASE_END, "" );
 
+        //
         // Special case if the single variable was never set, the value should be null (not "").
+        //
         if ( varReplacedCount == 0 && varNotSetCount == 1 && value.trim().isEmpty() )
         {
             return null;

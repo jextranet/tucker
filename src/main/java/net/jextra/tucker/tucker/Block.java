@@ -37,6 +37,7 @@ public class Block extends Node
     private String name;
     private ArrayList<Node> nodes;
     private Map<String, String> varValues;
+    private Map<String, Boolean> boolValues;
 
     // ============================================================
     // Constructors
@@ -46,6 +47,7 @@ public class Block extends Node
     {
         nodes = new ArrayList<>();
         varValues = new HashMap<>();
+        boolValues = new HashMap<>();
     }
 
     public Block( String name )
@@ -68,6 +70,10 @@ public class Block extends Node
         {
             varValues.put( key, other.getVariable( key ) );
         }
+        for ( String key : other.boolValues.keySet() )
+        {
+            boolValues.put( key, other.getBoolean( key ) );
+        }
     }
 
     // ============================================================
@@ -87,12 +93,21 @@ public class Block extends Node
     @Override
     public void write( OutputContext ctx, boolean inline )
     {
-        // Copy varValues to the context.
+        //
+        // Copy variables and booleans to the output context.
+        //
         ctx.clearVariableValues();
+
         for ( String key : varValues.keySet() )
         {
             String value = varValues.get( key );
             ctx.setVariableValue( key, value );
+        }
+
+        for ( String key : boolValues.keySet() )
+        {
+            Boolean value = boolValues.get( key );
+            ctx.setBooleanValue( key, value );
         }
 
         for ( Node node : nodes )
@@ -156,23 +171,93 @@ public class Block extends Node
 
     public Block setVariable( String name, String value )
     {
-        setVariable( name, value, true );
+        return setVariable( name, value, true );
+    }
 
-        return this;
+    public Block setVariable( String name, String... values )
+    {
+        StringBuilder builder = new StringBuilder();
+        int count = 0;
+        for ( String v : values )
+        {
+            if ( v == null )
+            {
+                continue;
+            }
+            else if ( builder.length() > 0 )
+            {
+                builder.append( " " );
+            }
+            builder.append( v );
+            count++;
+        }
+
+        return setVariable( name, count > 0 ? builder.toString() : null );
+    }
+
+    public Block setVariable( String name, Collection<String> values )
+    {
+        if ( values == null )
+        {
+            return setVariable( name, (String) null );
+        }
+
+        StringBuilder builder = new StringBuilder();
+        int count = 0;
+        for ( String v : values )
+        {
+            if ( v == null )
+            {
+                continue;
+            }
+            else if ( builder.length() > 0 )
+            {
+                builder.append( " " );
+            }
+            builder.append( v );
+            count++;
+        }
+
+        return setVariable( name, count > 0 ? builder.toString() : null );
     }
 
     public Block setVariable( String name, String value, Boolean encode )
     {
-        if (encode) {
+        if ( encode )
+        {
             varValues.put( name, Encoder.encodeForHtml( value ) );
-        } else {
+        }
+        else
+        {
             varValues.put( name, value );
         }
 
         return this;
     }
 
-    public int insert( String insertionName, Block block )
+    public Block setBoolean( String name )
+    {
+        return setBoolean( name, true );
+    }
+
+    public Block clearBoolean( String name )
+    {
+        boolValues.remove( name );
+        return this;
+    }
+
+    public Block setBoolean( String name, boolean value )
+    {
+        boolValues.put( name, value );
+        return this;
+    }
+
+    public boolean getBoolean( String name )
+    {
+        return boolValues.get( name ) == null ? false : boolValues.get( name );
+    }
+
+    public int insert( String insertionName, Node insertNode )
     {
         int count = 0;
 
@@ -181,7 +266,7 @@ public class Block extends Node
             switch ( node.getNodeType() )
             {
                 case tag:
-                    count += ( (TagNode) node ).insert( insertionName, block );
+                    count += ( (TagNode) node ).insert( insertionName, insertNode );
                     break;
 
                 // Special case where there is an insertion point at the root level
@@ -189,13 +274,18 @@ public class Block extends Node
                     InsertionNode insertionNode = ( (InsertionNode) node );
                     if ( insertionName.equals( insertionNode.getName() ) )
                     {
-                        insertionNode.insert( block );
+                        insertionNode.insert( insertNode );
                         count++;
                     }
             }
         }
 
         return count;
+    }
+
+    public int insert( String insertionName, String text )
+    {
+        return insert( insertionName, new RawTextNode( text ) );
     }
 
     public TagNode findByElementId( String id )
@@ -259,7 +349,7 @@ public class Block extends Node
         {
             case tag:
                 TagNode element = (TagNode) node;
-                if ( id.equals( element.getId().toString() ) )
+                if ( id.equals( element.getId() ) )
                 {
                     return element;
                 }
