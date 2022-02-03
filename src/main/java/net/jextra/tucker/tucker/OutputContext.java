@@ -209,9 +209,7 @@ public class OutputContext
         for ( Matcher m = boolPattern.matcher( value ); m.matches(); m = boolPattern.matcher( value ) )
         {
             String var = m.group( 2 );
-            System.out.println( "var=" + var );
             boolean boolValue = boolValues.get( var ) == null ? false : boolValues.get( var );
-            System.out.println( "boolValue=" + boolValue );
             if ( boolValue )
             {
                 varReplacedCount++;
