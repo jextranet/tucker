@@ -944,8 +944,6 @@ public class Tucker
                             break;
 
                         case '|':
-                            activeAttName = attNameBuilder.toString();
-                            attNameBuilder.setLength( 0 );
                             if ( activeAttName != null && !activeAttName.isEmpty() )
                             {
                                 activeNode.addAttribute( activeAttName );
@@ -1022,6 +1020,12 @@ public class Tucker
                     }
                     break;
             }
+        }
+
+        // Make sure to capture last attribute with no value
+        if ( attNameBuilder.length() > 0 )
+        {
+            activeNode.addAttribute( attNameBuilder.toString() );
         }
 
         // This is a signal that there is nothing left on this line.

@@ -189,15 +189,15 @@ public class OutputContext
         {
             String var = m.group( 2 );
             String varValue = varValues.get( var );
-            if ( varValue == null )
-            {
-                varNotSetCount++;
-                value = m.group( 1 ) + m.group( 3 );
-            }
-            else
+            if ( varValue != null )
             {
                 varReplacedCount++;
                 value = m.group( 1 ) + varValue + m.group( 3 );
+            }
+            else
+            {
+                varNotSetCount++;
+                value = m.group( 1 ) + m.group( 3 );
             }
         }
 
