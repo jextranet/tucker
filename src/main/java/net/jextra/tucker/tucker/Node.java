@@ -21,29 +21,90 @@
 
 package net.jextra.tucker.tucker;
 
+import java.util.*;
+
 /**
- * A Node is typically a single line in the .thtml file. It can be either a TagNode (typical html tag with attributes and text), an InsertionNode to
- * identify location that insertions can occur, or a RawTextNode to represent raw text.
+ * A Node is typically a single line in the .thtml file. It can be either a root block, a tag (typical html tag with attributes and text),
+ * an insertion to identify location that insertions can occur, or a rawTest to represent raw text.
  */
-public abstract class Node
+public class Node
 {
     // ============================================================
     // Enums
     // ============================================================
 
-    enum NodeType
+    public enum NodeType
     {
-        block,
-        tag,
-        insertion,
-        rawText
+        block,  // = root node with variable scope and bindings
+        insertion,  // > insertion point
+        tag, // typical Node
+        rawText // override output with non-interpreted rawText
     }
 
     // ============================================================
     // Fields
     // ============================================================
 
+    public static final String DEFAULT_TAG = "div";
+    public static final String ATT_ID = "id";
+    public static final String ATT_CLASS = "class";
+
+    private NodeType type;
     private int indent;
+    private int row;
+    private boolean inline;
+    private String tagName;
+    private Map<String, Attribute> attributes;
+    private List<Segment> segments;
+    private List<Node> children;
+    private String rawText;
+
+    // ============================================================
+    // Constructors
+    // ============================================================
+
+    public Node()
+    {
+        type = NodeType.tag;
+        tagName = DEFAULT_TAG;
+        attributes = new LinkedHashMap<>();
+        segments = new ArrayList<>();
+        children = new ArrayList<>();
+    }
+
+    public Node( NodeType type )
+    {
+        this();
+        this.type = type;
+    }
+
+    public Node( Node other )
+    {
+        this();
+        type = other.type;
+        indent = other.indent;
+        row = other.row;
+        inline = other.inline;
+        tagName = other.tagName;
+        rawText = other.rawText;
+
+        for ( String key : other.attributes.keySet() )
+        {
+            Attribute att = other.attributes.get( key );
+            Attribute newAtt = new Attribute( att );
+            attributes.put( key, newAtt );
+        }
+
+        for ( Segment segment : other.segments )
+        {
+            segments.add( new Segment( segment ) );
+        }
+
+        for ( Node child : other.children )
+        {
+            children.add( new Node( child ) );
+        }
+    }
 
     // ============================================================
     // Methods
@@ -53,33 +114,33 @@ public abstract class Node
     // public
     // ----------
 
-    public abstract NodeType getNodeType();
-
-    public abstract void write( OutputContext ctx, boolean inline );
-
-    public Node cloneNode()
+    public static Node newRawNode( String rawText )
     {
-        switch ( getNodeType() )
-        {
-            case block:
-                return new Block( (Block) this );
-
-            case tag:
-                return new TagNode( (TagNode) this );
-
-            case insertion:
-                return new InsertionNode( (InsertionNode) this );
-
-            case rawText:
-                return new RawTextNode( (RawTextNode) this );
-        }
-
-        throw new RuntimeException( "Unexpected node type to clone: " + getNodeType() );
+        Node node = new Node( Node.NodeType.rawText );
+        node.setRawText( rawText );
+        return node;
     }
 
-    public void setIndent( int indent )
+    public NodeType getType()
+    {
+        return type;
+    }
+
+    public Node setType( NodeType type )
+    {
+        this.type = type;
+        return this;
+    }
+
+    public NodeType getNodeType()
+    {
+        return type;
+    }
+
+    public Node setIndent( int indent )
     {
         this.indent = indent;
+        return this;
     }
 
     public int getIndent()
@@ -87,18 +148,244 @@ public abstract class Node
         return indent;
     }
 
+    public int getRow()
+    {
+        return row;
+    }
+
+    public void setRow( int row )
+    {
+        this.row = row;
+    }
+
+    public boolean isInline()
+    {
+        return inline;
+    }
+
+    public void setInline( boolean inline )
+    {
+        this.inline = inline;
+    }
+
+    public String getTagName()
+    {
+        return tagName;
+    }
+
+    public void setTagName( String tagName )
+    {
+        this.tagName = tagName;
+    }
+
+    public Map<String, Attribute> getAttributes()
+    {
+        return attributes;
+    }
+
     public void addAttribute( String key )
     {
-        // Default is to throw away
+        addAttribute( key, null );
     }
 
     public void addAttribute( String key, String value )
     {
-        // Default is to throw away
+        if ( attributes.containsKey( key ) )
+        {
+            Attribute att = attributes.get( key );
+            if ( att == null || att.getValue() == null || att.getValue().isEmpty() )
+            {
+                attributes.put( key, att );
+            }
+            else
+            {
+                att.setValue( att.getValue() + " " + value );
+            }
+        }
+        else
+        {
+            Attribute att = new Attribute( key, value );
+            attributes.put( key, att );
+        }
+    }
+
+    public void addAttribute( Attribute att )
+    {
+        if ( att == null )
+        {
+            return;
+        }
+
+        attributes.put( att.getKey(), att );
+    }
+
+    public Attribute getAttribute( String key )
+    {
+        return attributes.get( key );
+    }
+
+    public Attribute removeAttribute( String key )
+    {
+        return attributes.remove( key );
+    }
+
+    /**
+     * Same as addAttribute but overrides any value that was there before.
+     */
+    public void setAttribute( String key, String value )
+    {
+        removeAttribute( key );
+        addAttribute( key, value );
+    }
+
+    public String getId()
+    {
+        Attribute att = attributes.get( ATT_ID );
+
+        return att == null ? null : att.getValue();
+    }
+
+    public Node findByElementId( String id )
+    {
+        if ( getId() != null && getId().equals( id ) )
+        {
+            return this;
+        }
+
+        for ( Node child : getChildren() )
+        {
+            Node foundNode = child.findByElementId( id );
+            if ( foundNode != null )
+            {
+                return foundNode;
+            }
+        }
+
+        return null;
+    }
+
+    public Set<String> getStyleClasses()
+    {
+        HashSet<String> set = new HashSet<>();
+        Attribute att = attributes.get( ATT_CLASS );
+        if ( att == null )
+        {
+            return set;
+        }
+
+        for ( String string : att.getValue().split( "\\s" ) )
+        {
+            set.add( string );
+        }
+
+        return set;
+    }
+
+    public boolean hasStyleClass( String clss )
+    {
+        Attribute att = attributes.get( ATT_CLASS );
+        if ( att == null )
+        {
+            return false;
+        }
+
+        for ( String string : att.getValue().split( "\\s" ) )
+        {
+            if ( clss.equals( string ) )
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public Node findByStyleClass( String clss )
+    {
+        if ( hasStyleClass( clss ) )
+        {
+            return this;
+        }
+
+        for ( Node child : getChildren() )
+        {
+            Node foundNode = child.findByStyleClass( clss );
+            if ( foundNode != null )
+            {
+                return foundNode;
+            }
+        }
+
+        return null;
     }
 
     public void addSegment( Segment segment )
     {
-        // Default is to throw away
+        segments.add( segment );
+    }
+
+    public void addText( String text )
+    {
+        segments.add( new Segment( text ) );
+    }
+
+    public List<Segment> getSegments()
+    {
+        return segments;
+    }
+
+    public List<Node> getChildren()
+    {
+        return children;
+    }
+
+    public void clearChildren()
+    {
+        children.clear();
+    }
+
+    public void addChild( Node node )
+    {
+        children.add( node );
+    }
+
+    public int insert( String insertionName, Node insertNode )
+    {
+        int count = 0;
+        if ( type == NodeType.insertion && insertionName.equals( tagName ) )
+        {
+            addChild( insertNode );
+            count++;
+        }
+
+        // If no insertion happened at this node. Try to find them in child nodes.
+        if ( count == 0 )
+        {
+            for ( Node node : getChildren() )
+            {
+                count += node.insert( insertionName, insertNode );
+            }
+        }
+
+        return count;
+    }
+
+    public int insert( String insertionName, String text )
+    {
+        Node rawNode = new Node( NodeType.rawText );
+        rawNode.setRawText( text );
+        return insert( insertionName, rawNode );
+    }
+
+    public String getRawText()
+    {
+        return rawText;
+    }
+
+    public Node setRawText( String rawText )
+    {
+        this.rawText = rawText;
+
+        return this;
     }
 }

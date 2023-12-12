@@ -22,7 +22,7 @@
 package net.jextra.tucker.tucker;
 
 /**
- * A portion on the inner text of a tag. It represents either plain text or an inline.
+ * A portion on the inner text of a tag. It represents either plain text or an inline Node.
  */
 public class Segment
 {
@@ -42,7 +42,7 @@ public class Segment
 
     private Type type;
     private String value;
-    private TagNode tagNode;
+    private Node node;
 
     // ============================================================
     // Constructors
@@ -74,7 +74,7 @@ public class Segment
     {
         type = other.type;
         value = other.value;
-        this.tagNode = other.tagNode;
+        this.node = other.node;
     }
 
     // ============================================================
@@ -112,14 +112,14 @@ public class Segment
         return this;
     }
 
-    public TagNode getTagNode()
+    public Node getNode()
     {
-        return tagNode;
+        return node;
     }
 
-    public void setTagNode( TagNode tagNode )
+    public void setNode( Node tagNode )
     {
-        this.tagNode = tagNode;
+        this.node = tagNode;
     }
 
     @Override

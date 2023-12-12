@@ -2,12 +2,14 @@ package net.jextra.tucker.encoder;
 
 import java.util.*;
 
-public class Html4EntityMap extends CharacterMap {
+public class Html4EntityMap extends CharacterMap
+{
 
     public static Map<CharSequence, CharSequence> ESCAPE;
     public static Map<CharSequence, CharSequence> UNESCAPE;
 
-    static {
+    static
+    {
         ESCAPE = new HashMap();
         ESCAPE.put( " ", "&nbsp;" );
         ESCAPE.put( "¡", "&iexcl;" );

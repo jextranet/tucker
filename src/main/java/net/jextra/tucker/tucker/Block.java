@@ -21,12 +21,11 @@
 
 package net.jextra.tucker.tucker;
 
-import java.io.*;
+import java.lang.reflect.*;
 import java.util.*;
-import net.jextra.tucker.encoder.*;
 
 /**
- * A block is a group of HTML Elements, potentially named.
+ * A Block is a named grouping of {@link Node}s. It does not manifest into any specific tag in the output HTML.
  */
 public class Block extends Node
 {
@@ -34,10 +33,8 @@ public class Block extends Node
     // Fields
     // ============================================================
 
-    private String name;
-    private ArrayList<Node> nodes;
-    private Map<String, String> varValues;
-    private Map<String, Boolean> boolValues;
+    private Scope scope;
+    private NodeWriter writer;
 
     // ============================================================
     // Constructors
@@ -45,35 +42,22 @@ public class Block extends Node
 
     public Block()
     {
-        nodes = new ArrayList<>();
-        varValues = new HashMap<>();
-        boolValues = new HashMap<>();
+        super( NodeType.block );
+        scope = new Scope();
+        writer = new NodeWriter();
     }
 
     public Block( String name )
     {
         this();
-
-        this.name = name;
+        setTagName( name );
     }
 
     public Block( Block other )
     {
-        this();
-
-        this.name = other.name;
-        for ( Node element : other.nodes )
-        {
-            nodes.add( element.cloneNode() );
-        }
-        for ( String key : other.varValues.keySet() )
-        {
-            varValues.put( key, other.getVariable( key ) );
-        }
-        for ( String key : other.boolValues.keySet() )
-        {
-            boolValues.put( key, other.getBoolean( key ) );
-        }
+        super( other );
+        scope = new Scope( other.scope );
+        writer = new NodeWriter( other.writer );
     }
 
     // ============================================================
@@ -84,89 +68,34 @@ public class Block extends Node
     // public
     // ----------
 
-    @Override
-    public NodeType getNodeType()
+    public Scope getScope()
     {
-        return NodeType.block;
+        return scope;
     }
 
-    @Override
-    public void write( OutputContext ctx, boolean inline )
+    public void setScope( Scope scope )
     {
-        //
-        // Copy variables and booleans to the output context.
-        //
-        ctx.clearVariableValues();
-
-        for ( String key : varValues.keySet() )
-        {
-            String value = varValues.get( key );
-            ctx.setVariableValue( key, value );
-        }
-
-        for ( String key : boolValues.keySet() )
-        {
-            Boolean value = boolValues.get( key );
-            ctx.setBooleanValue( key, value );
-        }
-
-        for ( Node node : nodes )
-        {
-            node.write( ctx, false );
-        }
+        this.scope = scope;
     }
 
-    public String getName()
+    public NodeWriter getWriter()
     {
-        return name;
+        return writer;
     }
 
-    public void setName( String name )
+    public void setWriter( NodeWriter writer )
     {
-        this.name = name;
-    }
-
-    public void addNode( Node node )
-    {
-        if ( node == null )
-        {
-            throw new RuntimeException( "A block node cannot be null" );
-        }
-
-        nodes.add( node );
-    }
-
-    public List<Node> getNodes()
-    {
-        return nodes;
-    }
-
-    public TagNode getFirstElement()
-    {
-        for ( Node node : nodes )
-        {
-            if ( node.getNodeType() == Node.NodeType.tag )
-            {
-                return (TagNode) node;
-            }
-        }
-
-        return null;
-    }
-
-    public void clear()
-    {
-        nodes.clear();
+        this.writer = writer;
     }
 
     public Set<String> getVariableNames()
     {
-        return varValues.keySet();
+        return scope.getVariableNames();
     }
 
     public String getVariable( String name )
     {
-        return varValues.get( name );
+        return scope.getVariable( name );
     }
 
     public Block setVariable( String name, String value )
@@ -223,14 +152,7 @@ public class Block extends Node
 
     public Block setVariable( String name, String value, Boolean encode )
     {
-        if ( encode )
-        {
-            varValues.put( name, Encoder.encodeForHtml( value ) );
-        }
-        else
-        {
-            varValues.put( name, value );
-        }
+        scope.setVariable( name, value, encode );
 
         return this;
     }
@@ -242,82 +164,36 @@ public class Block extends Node
 
     public Block clearBoolean( String name )
     {
-        boolValues.remove( name );
+        scope.clearBoolean( name );
         return this;
     }
 
     public Block setBoolean( String name, boolean value )
     {
-        boolValues.put( name, value );
+        scope.setBoolean( name, value );
         return this;
     }
 
     public boolean getBoolean( String name )
     {
-        return boolValues.get( name ) == null ? false : boolValues.get( name );
+        return scope.getBoolean( name );
     }
 
-    public int insert( String insertionName, Node insertNode )
+    public Node findByStyleClass( String clss )
     {
-        int count = 0;
-
-        for ( Node node : nodes )
-        {
-            switch ( node.getNodeType() )
-            {
-                case tag:
-                    count += ( (TagNode) node ).insert( insertionName, insertNode );
-                    break;
-
-                // Special case where there is an insertion point at the root level
-                case insertion:
-                    InsertionNode insertionNode = ( (InsertionNode) node );
-                    if ( insertionName.equals( insertionNode.getName() ) )
-                    {
-                        insertionNode.insert( insertNode );
-                        count++;
-                    }
-            }
-        }
-
-        return count;
-    }
-
-    public int insert( String insertionName, String text )
-    {
-        return insert( insertionName, new RawTextNode( text ) );
-    }
-
-    public TagNode findByElementId( String id )
-    {
-        for ( Node node : nodes )
-        {
-            TagNode element = findByElementId( node, id );
-            if ( element != null )
-            {
-                return element;
-            }
-        }
-
-        return null;
-    }
-
-    public TagNode findFirstElementByClass( String clss )
-    {
-        for ( Node node : nodes )
+        for ( Node node : getChildren() )
         {
             if ( node.getNodeType() != Node.NodeType.tag )
             {
                 continue;
             }
 
-            TagNode element = (TagNode) node;
-            if ( element.hasStyleClass( clss ) )
+            if ( node.hasStyleClass( clss ) )
             {
-                return element;
+                return node;
             }
 
-            TagNode child = element.findFirstElementByClass( clss );
+            Node child = node.findByStyleClass( clss );
             if ( child != null )
             {
                 return child;
@@ -327,54 +203,62 @@ public class Block extends Node
         return null;
     }
 
+    public void bind( String tag, Hook hook )
+    {
+        writer.bind( tag, hook );
+    }
+
+    public <T extends Hook> T bind( String tag, Class<T> elementClass )
+        throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException
+    {
+        return writer.bind( tag, elementClass );
+    }
+
+    public String render( PageContext page )
+    {
+        return render( page, getIndent() );
+    }
+
+    public String render( PageContext page, int indent )
+    {
+        writer.setPageContext( page );
+        writer.setIndent( indent );
+        return writer.render( this );
+    }
+
+    /**
+     * @use render(PageContext)
+     */
+    @Deprecated
+    public void write( OutputContext ctx, boolean inline )
+    {
+        ctx.write( this );
+    }
+
     @Override
     public String toString()
     {
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter writer = new PrintWriter( stringWriter );
-        OutputContext ctx = new OutputContext( writer );
-        write( ctx, false );
-        writer.close();
-
-        return stringWriter.toString();
+        return render( new NodeWriter.PageContextStub() );
     }
 
     // ----------
     // private
     // ----------
 
-    private TagNode findByElementId( Node node, String id )
+    private Node findByElementId( Node node, String id )
     {
-        switch ( node.getNodeType() )
+        if ( id.equals( node.getId() ) )
         {
-            case tag:
-                TagNode element = (TagNode) node;
-                if ( id.equals( element.getId() ) )
-                {
-                    return element;
-                }
+            return node;
+        }
 
-                for ( Node child : element.getChildren() )
-                {
-                    TagNode e = findByElementId( child, id );
-                    if ( e != null )
-                    {
-                        return e;
-                    }
-                }
-                break;
-
-            case insertion:
-                InsertionNode insertionNode = (InsertionNode) node;
-                for ( Node child : insertionNode.getChildren() )
-                {
-                    TagNode e = findByElementId( child, id );
-                    if ( e != null )
-                    {
-                        return e;
-                    }
-                }
-                break;
+        for ( Node child : node.getChildren() )
+        {
+            Node e = findByElementId( child, id );
+            if ( e != null )
+            {
+                return e;
+            }
         }
 
         return null;

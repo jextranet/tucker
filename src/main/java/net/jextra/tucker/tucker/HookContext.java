@@ -21,34 +21,24 @@
 
 package net.jextra.tucker.tucker;
 
-import java.io.*;
-
-public class RawTextNode extends Node
+public class HookContext extends ScopeContext
 {
     // ============================================================
     // Fields
     // ============================================================
 
-    private String text;
+    private Node node;
+    private PageContext page;
 
     // ============================================================
     // Constructors
     // ============================================================
 
-    public RawTextNode()
+    public HookContext( PageContext page, ScopeContext scope, Node node )
     {
-    }
-
-    public RawTextNode( String text )
-    {
-        this();
-        this.text = text;
-    }
-
-    public RawTextNode( RawTextNode other )
-    {
-        this();
-        text = other.getText();
+        super( scope );
+        this.page = page;
+        this.node = node;
     }
 
     // ============================================================
@@ -59,31 +49,23 @@ public class RawTextNode extends Node
     // public
     // ----------
 
-    @Override
-    public NodeType getNodeType()
+    public Node getNode()
     {
-        return NodeType.rawText;
+        return node;
     }
 
-    @Override
-    public void write( OutputContext ctx, boolean inline )
+    public void setNode( Node node )
     {
-        PrintWriter writer = ctx.getWriter();
-        writer.write( text );
+        this.node = node;
     }
 
-    public String getText()
+    public PageContext getPage()
     {
-        return text;
+        return page;
     }
 
-    public void setText( String text )
+    public void setPage( PageContext page )
     {
-        this.text = text;
-    }
-
-    public void append( String extra )
-    {
-        this.text += extra;
+        this.page = page;
     }
 }
