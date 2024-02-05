@@ -1,0 +1,8 @@
+
+== root
+h1 | $title
+ul
+    >item
+
+== item
+li.$style | $name

@@ -69,15 +69,15 @@ public class TuckerParser
     // Fields
     // ============================================================
 
-    public static final char LEFT_BRACE = 1;
-    public static final char RIGHT_BRACE = 2;
-    public static final char BACK_TICK = 3;
-    public static final char VAR_START = 4;
-    public static final char VAR_END = 5;
-    public static final char PHRASE_START = 6;
-    public static final char PHRASE_END = 7;
-    public static final char BOOL_START = 28;   // arbitrary control character that does not conflict with processing (8 does conflict).
-    public static final char BOOL_END = 29;
+    public static final char LEFT_BRACE = Tucker.LEFT_BRACE;
+    public static final char RIGHT_BRACE = Tucker.RIGHT_BRACE;
+    public static final char BACK_TICK = Tucker.BACK_TICK;
+    public static final char VAR_START = Tucker.VAR_START;
+    public static final char VAR_END = Tucker.VAR_END;
+    public static final char PHRASE_START = Tucker.PHRASE_START;
+    public static final char PHRASE_END = Tucker.PHRASE_END;
+    public static final char BOOL_START = Tucker.BOOL_START;
+    public static final char BOOL_END = Tucker.BOOL_END;
 
     public static final String LT = "&lt;";
     public static final String GT = "&gt;";
@@ -390,43 +390,26 @@ public class TuckerParser
                 case var:
                 case bool:
                     boolean isVarDone = false;
-                    switch ( c )
+                    if ( inVarParen && c == ')' )
                     {
-                        case ')':
-                            isVarDone = true;
-                            if ( !inVarParen )
-                            {
-                                i--; // Back up so ) character can get reprocessed as not part of the variable.
-                            }
-                            break;
-
-                        case ' ':
-                        case '\t':
-                            // Ignore any spaces in a variable surrounded by parens. If not in parens, variable must be done.
-                            if ( !inVarParen )
-                            {
-                                isVarDone = true;
-                            }
-                            break;
-
-                        default:
-                            if ( isVarChar( c ) || inVarParen )
-                            {
-                                varNameBuilder.append( c );
-                            }
-                            else
-                            {
-                                isVarDone = true;
-                                // Any character that cannot be in a variable name (e.g. a space ' ') terminates the variable name.
-                                // Back up and reprocess the terminating character.
-                                i--;
-                            }
+                        isVarDone = true;
+                    }
+                    else if ( isVarChar( c ) || inVarParen )
+                    {
+                        varNameBuilder.append( c );
+                    }
+                    else
+                    {
+                        isVarDone = true;
+                        // Any character that cannot be in a variable name (e.g. a space ' ') terminates the variable name.
+                        // Back up and reprocess the terminating character.
+                        i--;
                     }
 
                     if ( isVarDone )
                     {
                         builder.append( state == VarState.bool ? BOOL_START : VAR_START );
-                        builder.append( varNameBuilder );
+                        builder.append( varNameBuilder.toString().trim() );
                         builder.append( state == VarState.bool ? BOOL_END : VAR_END );
                         varNameBuilder.setLength( 0 );
                         state = VarState.SCAN;
@@ -466,6 +449,10 @@ public class TuckerParser
     private boolean isVarChar( char c )
     {
         if ( Character.isAlphabetic( c ) )
+        {
+            return true;
+        }
+        else if ( Character.isDigit( c ) )
         {
             return true;
         }

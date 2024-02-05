@@ -1,0 +1,8 @@
+
+== root
+h1 | My First Header
+p | My first paragraph.
+ul
+    li | My first list item
+    li | My second list item
+    li | My third list item

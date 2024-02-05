@@ -24,7 +24,8 @@ package net.jextra.tucker.tucker;
 import java.io.*;
 
 /**
- * Replaced by NodeWriter that is now hidden from a typical user's view.
+ * Replaced by NodeWriter that is now hidden from a typical programmer's point-of-view.
+ *
  * block.render( page ) is the best way to render a block.
  */
 @Deprecated

@@ -205,13 +205,13 @@ public class Block extends Node
 
     public void bind( String tag, Hook hook )
     {
-        writer.bind( tag, hook );
+        scope.bind( tag, hook );
     }
 
     public <T extends Hook> T bind( String tag, Class<T> elementClass )
         throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException
     {
-        return writer.bind( tag, elementClass );
+        return scope.bind( tag, elementClass );
     }
 
     public String render( PageContext page )

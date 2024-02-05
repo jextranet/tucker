@@ -23,6 +23,9 @@ package net.jextra.tucker.tucker;
 
 import java.util.*;
 
+/**
+ * Specifics about the context of the tag, such as variables, etc.
+ */
 public class ScopeContext
 {
     // ============================================================
@@ -135,5 +138,21 @@ public class ScopeContext
         }
 
         return builder.toString();
+    }
+
+    /**
+     * Find binding down through the entire scope stack.
+     */
+    public Hook findHook( Node node )
+    {
+        for ( HookBinding binding : stack.peek().getBindings() )
+        {
+            if ( binding.matches( node ) )
+            {
+                return binding.getHook();
+            }
+        }
+
+        return null;
     }
 }

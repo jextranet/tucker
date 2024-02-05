@@ -35,7 +35,6 @@ public class NodeWriter
     private PageContext pageContext;
     private ScopeContext scopeContext;
     private Translator translator;
-    private List<HookBinding> bindings;
 
     private PrintWriter out;
 
@@ -46,18 +45,12 @@ public class NodeWriter
     public NodeWriter()
     {
         scopeContext = new ScopeContext();
-        bindings = new ArrayList<>();
     }
 
     public NodeWriter( NodeWriter other )
     {
         pageContext = other.pageContext;
         scopeContext = new ScopeContext( other.scopeContext );
-        bindings = new ArrayList<>();
-        for ( HookBinding item : other.bindings )
-        {
-            bindings.add( new HookBinding( item ) );
-        }
     }
 
     // ============================================================
@@ -107,38 +100,6 @@ public class NodeWriter
     {
         scopeContext.setIndent( indent );
         return this;
-    }
-
-    public Hook getHook( String hookSelector )
-    {
-        for ( HookBinding binding : bindings )
-        {
-            if ( binding.matches( hookSelector ) )
-            {
-                return binding.getHook();
-            }
-        }
-
-        return null;
-    }
-
-    public void addHook( String hookSelector, Hook hook )
-    {
-        addHook( hookSelector, hook );
-    }
-
-    public void bind( String hookSelector, Hook hook )
-    {
-        bindings.add( new HookBinding( hookSelector, hook ) );
-    }
-
-    public <T extends Hook> T bind( String hookSelector, Class<T> hookClass )
-        throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException
-    {
-        T hook = hookClass.getDeclaredConstructor().newInstance();
-        bind( hookSelector, hook );
-
-        return hook;
     }
 
     public String render( Node node )
@@ -509,7 +470,7 @@ public class NodeWriter
             case tag:
             {
                 // If the node is bound to a hook do the replacement.
-                Hook hook = findHook( node );
+                Hook hook = scopeContext.findHook( node );
                 if ( hook != null )
                 {
                     Node newNode = performHook( hook, node );
@@ -676,19 +637,6 @@ public class NodeWriter
     private boolean getBoolean( String name )
     {
         return scopeContext.getBoolean( name );
-    }
-
-    public Hook findHook( Node node )
-    {
-        for ( HookBinding binding : bindings )
-        {
-            if ( binding.matches( node ) )
-            {
-                return binding.getHook();
-            }
-        }
-
-        return null;
     }
 
     private Node performHook( Hook tag, Node node )

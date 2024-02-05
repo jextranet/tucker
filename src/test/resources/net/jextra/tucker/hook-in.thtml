@@ -1,0 +1,11 @@
+
+== root
+h1 | $title
+hook:custom-div
+
+== custom-div
+div.hook-custom-div
+    p | This is the first line
+    p | This is the second line
+    p | This is the third line
+

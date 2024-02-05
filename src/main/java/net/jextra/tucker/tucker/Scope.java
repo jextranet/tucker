@@ -21,6 +21,7 @@
 
 package net.jextra.tucker.tucker;
 
+import java.lang.reflect.*;
 import java.util.*;
 import net.jextra.tucker.encoder.*;
 
@@ -32,6 +33,7 @@ public class Scope
 
     private Map<String, String> varValues;
     private Map<String, Boolean> boolValues;
+    private List<HookBinding> bindings;
 
     // ============================================================
     // Constructors
@@ -41,6 +43,7 @@ public class Scope
     {
         varValues = new HashMap<>();
         boolValues = new HashMap<>();
+        bindings = new ArrayList<>();
     }
 
     public Scope( Scope other )
@@ -55,6 +58,11 @@ public class Scope
         for ( String key : other.boolValues.keySet() )
         {
             boolValues.put( key, other.getBoolean( key ) );
+        }
+
+        for ( HookBinding binding : other.bindings )
+        {
+            bindings.add( new HookBinding( binding ) );
         }
     }
 
@@ -178,5 +186,24 @@ public class Scope
     {
         boolValues.put( name, value );
         return this;
+    }
+
+    public void bind( String hookSelector, Hook hook )
+    {
+        bindings.add( new HookBinding( hookSelector, hook ) );
+    }
+
+    public <T extends Hook> T bind( String hookSelector, Class<T> hookClass )
+        throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException
+    {
+        T hook = hookClass.getDeclaredConstructor().newInstance();
+        bind( hookSelector, hook );
+
+        return hook;
+    }
+
+    public List<HookBinding> getBindings()
+    {
+        return bindings;
     }
 }

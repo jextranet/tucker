@@ -8,8 +8,7 @@ package net.jextra.tucker.tucker;
 import java.io.*;
 
 /**
- * The PageContext is used by when rendering to allow the rendering to potentially effect the overall Page that is being written into.
- * <p>
+ * The PageContext is used while rendering to allow the rendering to potentially effect the overall Page that is being written into.
  * An example is to add a link to required javascript to the page.
  */
 public interface PageContext
