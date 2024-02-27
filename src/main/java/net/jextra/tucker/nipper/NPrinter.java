@@ -73,17 +73,32 @@ public class NPrinter
         {
             switch ( line.getType() )
             {
-                case wrapper:
-                    printIndent( indent );
-                    printValue( line.getContent() );
-                    print( p.parentStart );
-                    printCr();
-                    printLines( indent + 1, line.getChildren() );
-                    printIndent( indent );
-                    print( p.parentEnd );
-                    printCr();
-                    if ( indent == 0 )
+                case atRule:
+                    if ( line.hasChildren() )
                     {
+                        printIndent( indent );
+                        printValue( line.getContent() );
+                        print( p.parentStart );
+                        printCr();
+                        printLines( indent + 1, line.getChildren() );
+                        printIndent( indent );
+                        print( p.parentEnd );
+                        printCr();
+                        if ( indent == 0 )
+                        {
+                            printCr();
+                        }
+                    }
+                    else
+                    {
+                        printIndent( indent );
+                        printValue( line.getContent() );
+                        // Special case is if the value was hacked to have a '}' at the end, don't add the semicolon.
+                        if ( !line.getContent().trim().endsWith( "}" ) )
+                        {
+                            print( p.propEnd );
+                        }
+                        printCr();
                         printCr();
                     }
                     break;

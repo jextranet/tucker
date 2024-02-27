@@ -34,7 +34,7 @@ public class NLine
         comment,
         include,
         variableDeclaration,
-        wrapper,    // @media, @support
+        atRule,    // @media, @support
         selector,
         property,
         continuation;
@@ -85,6 +85,11 @@ public class NLine
     {
         children.add( child );
         child.parent = this;
+    }
+
+    public boolean hasChildren()
+    {
+        return children != null && !children.isEmpty();
     }
 
     public List<NLine> getChildren()

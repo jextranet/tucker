@@ -58,7 +58,7 @@ public class NReader
         model = new NBlock();
 
         //
-        // Scan each line and turn into raw Line tokens
+        // Scan each line and turn into raw NLine tokens
         //
         int row = 0;
         ArrayList<NLine> lines = new ArrayList<>();
@@ -164,7 +164,7 @@ public class NReader
                     parent = parent.getParent();
                 }
 
-                // Convert a parent that is a property to a selector if it has children (and not looking for continuations).
+                // Convert a parent that is a non-: ending property to a selector if it has children (and not looking for continuations).
                 if ( parent.getType() == NLine.Type.property && !parent.getContent().endsWith( ":" ) )
                 {
                     parent.setType( NLine.Type.selector );
@@ -172,16 +172,14 @@ public class NReader
                 parent.addChild( line );
             }
 
-            if ( parent == null || parent.getType() == NLine.Type.wrapper )
+            // At Rules are processed differently than typical selector hierarchy.
+            if ( line.getContent().startsWith( "@" ) )
             {
-                if ( line.getContent().startsWith( "@" ) )
-                {
-                    line.setType( NLine.Type.wrapper );
-                }
-                else
-                {
-                    line.setType( NLine.Type.selector );
-                }
+                line.setType( NLine.Type.atRule );
+            }
+            else if ( parent == null /*|| parent.getType() == NLine.Type.atRule*/ )
+            {
+                line.setType( NLine.Type.selector );
             }
             else
             {
@@ -193,7 +191,9 @@ public class NReader
             parents.put( line.getIndent(), line );
         }
 
+        //
         // Transfer all lines to the model.
+        //
         for ( NLine line : lines )
         {
             switch ( line.getType() )
@@ -207,7 +207,7 @@ public class NReader
                     }
                     break;
 
-                case wrapper:
+                case atRule:
                 case selector:
                 case property:
                 case continuation:
