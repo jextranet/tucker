@@ -22,7 +22,6 @@
 package net.jextra.tucker.tucker;
 
 import java.io.*;
-import java.lang.reflect.*;
 import java.util.*;
 import java.util.regex.*;
 
@@ -247,7 +246,6 @@ public class NodeWriter
             atts.append( String.format( " %s=\"%s\"", key, att == null ? "null" : att.getValue() ) );
         }
 
-        System.out.printf( "%s%s type[%s]%s\n", prefix, node.getTagName(), node.getType(), atts );
         //            if ( atts.length() > 0 )
         //            {
         //                XLog.infof( LogKey.TUCKER_PARSER, "%s|%s", prefix, atts );
@@ -320,7 +318,28 @@ public class NodeWriter
                 {
                     hardNode.addChild( hardChild );
                 }
-                list.add( hardNode );
+
+                // If the node is bound to a hook do the replacement.
+                Hook hook = scopeContext.findHook( hardNode );
+                if ( hook != null )
+                {
+                    Node newNode = performHook( hook, hardNode );
+                    if ( newNode != null )
+                    {
+                        List<Node> hardNodes = hardenNode( newNode );
+                        if ( hardNodes != null )
+                        {
+                            for ( Node n : hardNodes )
+                            {
+                                list.add( n );
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    list.add( hardNode );
+                }
                 break;
             }
 
@@ -450,6 +469,10 @@ public class NodeWriter
         return null;
     }
 
+    /**
+     * Write the node and its children. It is assumed at this time that all variables have been processed and all that is needed here
+     * is to print out the node and its children.
+     */
     private void writeNode( Node node )
     {
         switch ( node.getNodeType() )
@@ -469,28 +492,18 @@ public class NodeWriter
 
             case tag:
             {
-                // If the node is bound to a hook do the replacement.
-                Hook hook = scopeContext.findHook( node );
-                if ( hook != null )
+                writeTagStart( node );
+                writeSegments( node );
+                if ( !node.getChildren().isEmpty() )
                 {
-                    Node newNode = performHook( hook, node );
-                    newNode = newNode == null ? node : newNode;
-                    writeNode( newNode );
+                    out.println();
                 }
-                else
-                {
-                    writeTagStart( node );
-                    writeSegments( node );
-                    if ( !node.getChildren().isEmpty() )
-                    {
-                        out.println();
-                    }
-                    int childCount = writeChildren( node, getIndent() + 1 );
-                    writeTagEnd( node, childCount > 0 );
-                }
+                int childCount = writeChildren( node, getIndent() + 1 );
+                writeTagEnd( node, childCount > 0 );
                 break;
             }
 
+            // Insertion should never occur. Already replaced in hardening.
             case insertion:
             {
                 writeChildren( node, getIndent() );
@@ -639,12 +652,12 @@ public class NodeWriter
         return scopeContext.getBoolean( name );
     }
 
-    private Node performHook( Hook tag, Node node )
+    private Node performHook( Hook hook, Node node )
     {
         try
         {
             HookContext ctx = new HookContext( pageContext, scopeContext, node );
-            Node newNode = tag.doHook( ctx );
+            Node newNode = hook.doHook( ctx );
 
             return newNode == null ? node : newNode;
         }

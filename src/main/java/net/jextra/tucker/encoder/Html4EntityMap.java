@@ -10,7 +10,7 @@ public class Html4EntityMap extends CharacterMap
 
     static
     {
-        ESCAPE = new HashMap();
+        ESCAPE = new HashMap<>();
         ESCAPE.put( " ", "&nbsp;" );
         ESCAPE.put( "¡", "&iexcl;" );
         ESCAPE.put( "¢", "&cent;" );

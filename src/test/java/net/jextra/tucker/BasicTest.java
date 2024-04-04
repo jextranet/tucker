@@ -45,7 +45,7 @@ public class BasicTest
         Tucker tucker = new Tucker( getClass().getResourceAsStream( "basic-in.thtml" ) );
         Block block = tucker.buildBlock( "root" );
 
-        String goal = new Scanner( getClass().getResourceAsStream( "basic-out.html" ) ).useDelimiter( "\\A" ).next();
+        String goal = new Scanner( getClass().getResourceAsStream( "basic-out.html" ) ).useDelimiter( "\\A" ).next().replace( "\r\n", "\n" );
 
         //        System.out.println( block.toString().replace( "\r\n", "\n" ) );
         //        System.out.println( goal );
@@ -60,7 +60,7 @@ public class BasicTest
         Tucker tucker = new Tucker( getClass().getResourceAsStream( "shortcut-in.thtml" ) );
         Block block = tucker.buildBlock( "root" );
 
-        String goal = new Scanner( getClass().getResourceAsStream( "shortcut-out.html" ) ).useDelimiter( "\\A" ).next();
+        String goal = new Scanner( getClass().getResourceAsStream( "shortcut-out.html" ) ).useDelimiter( "\\A" ).next().replace( "\r\n", "\n" );
 
         //        System.out.println( block.toString().replace( "\r\n", "\n" ) );
         //        System.out.println( goal );
@@ -82,7 +82,7 @@ public class BasicTest
         block.setVariable( "level1", "1" );
         block.setVariable( "off1", "off" );
 
-        String goal = new Scanner( getClass().getResourceAsStream( "variable-out.html" ) ).useDelimiter( "\\A" ).next();
+        String goal = new Scanner( getClass().getResourceAsStream( "variable-out.html" ) ).useDelimiter( "\\A" ).next().replace( "\r\n", "\n" );
 
         //        System.out.println( block.toString().replace( "\r\n", "\n" ) );
         //        System.out.println( goal );
@@ -109,10 +109,10 @@ public class BasicTest
             int count = block.insert( "item", item );
         }
 
-        String goal = new Scanner( getClass().getResourceAsStream( "insert-out.html" ) ).useDelimiter( "\\A" ).next();
+        String goal = new Scanner( getClass().getResourceAsStream( "insert-out.html" ) ).useDelimiter( "\\A" ).next().replace( "\r\n", "\n" );
 
-        System.out.println( block.toString().replace( "\r\n", "\n" ) );
-        System.out.println( goal );
+//        System.out.println( block.toString().replace( "\r\n", "\n" ) );
+//        System.out.println( goal );
         assertTrue( goal.equals( block.toString().replace( "\r\n", "\n" ) ) );
     }
 
@@ -127,10 +127,10 @@ public class BasicTest
         block.bind( "hook:custom-div", hook );
         block.setVariable( "title", "This is my first hook" );
 
-        String goal = new Scanner( getClass().getResourceAsStream( "hook-out.html" ) ).useDelimiter( "\\A" ).next();
+        String goal = new Scanner( getClass().getResourceAsStream( "hook-out.html" ) ).useDelimiter( "\\A" ).next().replace( "\r\n", "\n" );
 
-        System.out.println( block.toString().replace( "\r\n", "\n" ) );
-        System.out.println( goal );
+//        System.out.println( block.toString().replace( "\r\n", "\n" ) );
+//        System.out.println( goal );
         assertTrue( goal.equals( block.toString().replace( "\r\n", "\n" ) ) );
     }
 
